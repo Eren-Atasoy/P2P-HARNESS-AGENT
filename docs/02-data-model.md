@@ -35,7 +35,8 @@ demektir.
 ```json
 {
   "backend":  { "language": "python", "framework": "fastapi", "version": "0.115" },
-  "frontend": { "language": "typescript", "framework": "next", "version": "15" },
+  "frontend": { "language": "typescript", "framework": "next", "version": "15",
+                "ui": "tailwind + radix", "tokens": "docs/12" },
   "database": { "engine": "postgres", "version": "16", "orm": "sqlalchemy" },
   "auth":     { "strategy": "jwt", "provider": "self" },
   "infra":    { "runtime": "docker-compose" }
@@ -52,7 +53,7 @@ Sistemin kalbi. Bir agent'a verilen **tek** talimat kaynağı budur.
 |---|---|---|---|
 | `id` | string | ✔ | `API-001` |
 | `title` | string | ✔ | Tek satır, emir kipi |
-| `capabilities` | enum[] | ✔ | Gerekli yeteneklerin **tamamı**: `architecture` \| `planning` \| `backend` \| `frontend` \| `database` \| `migration` \| `test` \| `browser` \| `security` \| `review` \| `docs` \| `devops` \| `research` |
+| `capabilities` | enum[] | ✔ | Gerekli yeteneklerin **tamamı**: `architecture` \| `planning` \| `backend` \| `frontend` \| `database` \| `migration` \| `test` \| `browser` \| `security` \| `review` \| `docs` \| `devops` \| `research` \| `ui` \| `design-system` |
 | `risk` | enum | ✔ | `low` \| `medium` \| `high` — otonomi ve routing bunu kullanır (`docs/03 §5`) |
 | `depends_on` | string[] | ✔ | Task id listesi (boş olabilir) |
 | `intent` | string | ✔ | 2-5 cümle: ne ve **neden**. Uygulama detayı yok |
@@ -60,7 +61,7 @@ Sistemin kalbi. Bir agent'a verilen **tek** talimat kaynağı budur.
 | `inputs` | path[] | ✔ | Agent'ın okuyacağı belge/dosyalar |
 | `allowed_paths` | glob[] | ✔ | Yazma izni olan yollar |
 | `forbidden_paths` | glob[] | ✔ | Açıkça yasaklı (kural: `allowed`'ı ezer) |
-| `gates` | string[] | ✔ | Çalıştırılacak kalite kapıları (`docs/05`) |
+| `gates` | string[] | ✔ | Çalıştırılacak kalite kapıları (`docs/05`). UI dokunan task'lar için `G_UI_1..4` (`docs/12 §4`) |
 | `estimated_size` | enum | ✔ | `S` \| `M` \| `L` — `L` ise bölünmelidir |
 | `max_attempts` | int | ✔ | Varsayılan 3 |
 | `human_approval` | bool | ✔ | Birleştirme öncesi insan onayı gerekli mi |

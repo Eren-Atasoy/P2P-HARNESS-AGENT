@@ -27,6 +27,16 @@ Sonradan değiştirmek her şeyi yeniden yazmak demek.
 
 ## D2 — İlk hedef teknoloji yığını (referans ürün için)
 
+> **KISMEN KAPANDI (2026-09-10).** Frontend tarafı `docs/12-design-system.md`
+> ile bağlandı: **Next.js 15 (App Router) · TypeScript strict · Tailwind CSS ·
+> Radix UI primitives (shadcn/ui deseni) · Lucide**.
+>
+> Backend ve veritabanı hâlâ açık (öneri: FastAPI + Postgres) ve Faz 7'ye kadar
+> bekleyebilir. Ayrım bilinçli: frontend standardı **şimdi** gerekiyordu çünkü
+> tasarım sistemi ona bağlı; backend seçimi Faz 7'den önce gerekmiyor.
+>
+> Aşağıdaki değerlendirme, kararın nasıl verildiğinin kaydı olarak duruyor.
+
 Faz 7'de üreteceğimiz ilk gerçek ürünün yığını. Blueprint mimarisi çoklu yığını
 destekleyecek ama **birincisi** en olgun olan olmalı.
 
@@ -80,6 +90,10 @@ Bu karar, `docs/00 §4`'teki ticari katman ayrımını etkiler.
 `Prompt2Product` tanımlayıcı ama jenerik ve arama sonuçlarında zayıf.
 Faz 9'dan (açık kaynak yayını) önce kararlaştırılmalı — sonrası yeniden
 adlandırma maliyeti taşır.
+
+**Durum (2026-09-10):** kullanıcı kararı erteledi. `PRODUCT.md` → Brand
+Commitments bunu **çalışma adı** olarak kaydetti: hiçbir logo, wordmark veya
+görsel iş bu isim üzerine kurulamaz.
 
 - [ ] Karar: ______
 
@@ -205,9 +219,45 @@ bunu düşüremez, yalnızca genişletebilir.
 
 ---
 
+---
+
+# Tasarım sistemiyle gelen kararlar (2026-09-10)
+
+`docs/12-design-system.md` üç yeni karar açtı. Üçü de Faz 7'den önce
+gerekmiyor; detay ve öneriler `docs/12 §5`'te.
+
+## D13 — Task graph görselleştirme kütüphanesi
+
+React Flow (hazır etkileşim, ~50kb, kendi stili) vs elle SVG + dagre (tam token
+kontrolü, pan/zoom elle). **Öneri:** dagre + elle SVG — graph'ın okunabilirliği
+ürünün değeri, hazır kütüphanenin varsayılan görünümü `docs/12 §1.1`'deki bakış
+açısını taşımaz.
+
+- [ ] Karar: ______
+
+## D14 — Panel yazabilir mi
+
+`ADR-003` UI'ın orkestrasyon durumuna yazmasını yasaklıyor; onay ve steer
+eylemleri bunu ihlal etmez ama dolaylılığın biçimi kararlaşmadı.
+**Öneri:** panel yerel CLI'a komut kuyruğu üzerinden yazar; orchestrator
+kuyruğu okur, eylemi yapar, olayı kendisi yazar. Tek yazar kuralı korunur.
+
+- [ ] Karar: ______
+
+## D15 — Blueprint tokenlarını kullanıcı nasıl değiştirir
+
+Üretilen ürün kullanıcının markasını taşır; özelleştirme biçimi (prompt'ta
+marka bilgisi / üretim sonrası düzenleme / `Blueprint` parametresi) açık.
+
+- [ ] Karar: ______
+
+---
+
 ## Öncelik
 
-**Faz 1'i bloke edenler:** D1 (dil), D2 (referans yığın)
+**Faz 1'i bloke edenler:** D1 (dil) · D2 backend tarafı (frontend kapandı)
 **Faz 2'yi bloke edenler:** D9 (otonomi varsayılanı), D12 (risk kuralları)
 **Faz 5'e kadar bekleyebilir:** D11
+**Faz 7'ye kadar bekleyebilir:** D15, D2 backend
 **Faz 9'a kadar bekleyebilir:** D3-D8, D10
+**Faz 10'a kadar bekleyebilir:** D13, D14

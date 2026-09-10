@@ -32,8 +32,11 @@ Sırayla:
 | 9 | `docs/08-roadmap.md` | Fazlar ve çıkış kriterleri |
 | 10 | `docs/09-workflow.md` | Günlük çalışma akışı — ilk gün ne yapacaksın |
 | 11 | `docs/11-verification-backlog.md` | Doğrulanmamış varsayımlar — hangi faz neye bağlı |
-| 12 | `docs/architecture-review.md` | Red team bulguları ve karar kaydı |
-| 13 | `docs/adr/*.md` | Geri dönüşü zor kararların gerekçeleri |
+| 12 | `docs/12-design-system.md` | Tasarım sistemi, görsel kimlik, UI kalite kapıları |
+| 13 | `docs/architecture-review.md` | Red team bulguları ve karar kaydı |
+| 14 | `docs/adr/*.md` | Geri dönüşü zor kararların gerekçeleri |
+
+Ürün gerçeği: **`PRODUCT.md`** (kullanıcılar, konumlanış, kanıt, ilkeler).
 
 Agent'lara verilecek kalıcı kurallar ve master promptlar:
 

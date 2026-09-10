@@ -34,6 +34,16 @@ Ucuzdan pahalıya sıralı. Bir katman `FAIL` verirse sonrakiler **çalışmaz**
 | 11 | `security` | Bilinen zafiyet, sır, bağımlılık | dakikalar |
 | 12 | `coverage` | Kapsam eşiği | — |
 
+**UI kapıları** (`docs/12 §4`) — frontend dokunan task'larda yukarıdaki
+sıraya karışır, ayrı bir zincir değildir:
+
+| Kapı | Katman karşılığı | Ne yakalar |
+|---|---|---|
+| `G_UI_1` | 1-2 (format + lint) | Biçim, kural, **token dışı ham değer** |
+| `G_UI_2` | 3 (typecheck) | Tip hatası, `any` |
+| `G_UI_3` | 11 (a11y) | Kontrast, renk-tek sinyal, klavye, semantik |
+| `G_UI_4` | 5 + 10 (unit + e2e) | Bileşen davranışı, altın yol tarayıcıda |
+
 `a11y` (erişilebilirlik) v1 kapsamında **değildir** — üretilen ürünün
 erişilebilirliği v1'de kabul kriteri değil. Faz 9+.
 
@@ -138,7 +148,9 @@ Etki hesabı v1'de basit ve muhafazakâr: değişen üst düzey dizine göre.
 
 ```
 backend/**   → build, unit, contract, integration, smoke, e2e
-frontend/**  → build, typecheck, unit, e2e
+frontend/**  → build, G_UI_1, G_UI_2, G_UI_4, e2e
+frontend/tokens/**   → yukarıdakiler + G_UI_3 (token değişimi kontrastı bozar)
+components/ui/**     → yukarıdakilerin tamamı
 infra/**     → smoke, e2e
 docs/**      → (kapı yok)
 ```
@@ -157,6 +169,9 @@ Bir task ancak şunların **hepsi** doğruyken `DONE` olur:
 - [ ] Integration dalına çakışmasız birleşmiş
 - [ ] Regresyon kapıları yeşil
 - [ ] `human_approval=true` ise insan onaylamış
+- [ ] UI dokunan task ise: iki tema doğru · boş/yükleniyor/hata durumları var
+      ve test edilmiş · `base` ve `lg`'de yatay taşma yok · klavyeyle tam
+      kullanılabilir (`docs/12 §4`)
 
 Bu liste `p2p status <task>` çıktısında birebir gösterilir. Kullanıcı hangi
 maddede takıldığını tahmin etmek zorunda kalmamalı.
