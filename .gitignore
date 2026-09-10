@@ -1,0 +1,9 @@
+.p2p/state.json
+.p2p/runs/
+.p2p/wt/
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.env
+.DS_Store
