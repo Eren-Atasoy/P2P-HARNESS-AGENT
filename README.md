@@ -46,6 +46,10 @@ Agent'lara verilecek kalıcı kurallar ve master promptlar:
 
 ---
 
+## Uygulamaya geçiş
+
+Devralan için tek giriş noktası: **`HANDOFF.md`**
+
 ## Dil politikası
 
 - `docs/**` → **Türkçe.** Birincil okuyucu sensin.

@@ -13,6 +13,7 @@ the orchestrator (or by you, by hand, during Phases 0-5).
 | `05-review.md` | claude | Review | review result |
 | `06-fix.md` | gemini | Repair | code + result |
 | `07-acr-review.md` | claude | Architecture change | verdict, docs, new tasks |
+| `08-implement-phase.md` | gemini | P2P'nin kendi fazı | çekirdek kod |
 | `acr-template.md` | — | template | filled by the implementer |
 
 ## Rules for editing these
