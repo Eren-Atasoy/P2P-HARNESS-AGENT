@@ -2,16 +2,35 @@
 
 ## 1. Tek cümlelik tanım
 
-Prompt2Product (P2P), doğal dildeki bir ürün isteğini; ürün tanımına, mimariye,
-bağımlılık farkında bir görev grafiğine ve oradan **çalışan + otomatik
-doğrulanmış** bir yazılım ürününe dönüştüren, yerel makinede çalışan,
-model-bağımsız bir orkestrasyon platformudur.
+> **Prompt2Product, kullanıcının erişebildiği AI agent'larını, araçlarını ve
+> runtime'larını otonom biçimde koordine ederek doğal dildeki ürün isteklerini
+> doğrulanmış yazılım ürünlerine dönüştüren, model-bağımsız ve local-first bir
+> yazılım mühendisliği platformudur.**
 
-Vaat, "tek promptla ürün" değil — **tek promptla, iki onay noktasıyla
-doğrulanmış ürün**. Bu iki nokta (mimari onayı ve yayın onayı) mimarinin
-parçasıdır, sürtünmesi değil: bir dil modelinin geri dönüşü en pahalı iki
-kararını insana bırakır. Bu ayrımı bulanıklaştıran her pazarlama cümlesi,
-`docs/03 §5`'teki kapılarla çelişir. (C2)
+Üç iddianın her biri bağlayıcıdır:
+
+**Otonom.** Kullanıcı prompt verir; agent'lar arasında mesaj taşımaz, "şimdi
+sıra kimde" diye düşünmez. Orchestrator task üretir, bağımlılık çözer, agent
+seçer, paralel çalıştırır, doğrular, inceletir, düzelttirir ve devam eder
+(`docs/03 §7`).
+
+**Model-bağımsız.** Claude ve Gemini, P2P'yi geliştirirken kullandığımız ilk
+iki runtime'dır — mimarinin dayanağı değil. Kullanıcı hangi AI'a erişiyorsa
+(abonelik, API, yerel model, gateway) sistem onu kullanır (`docs/04`).
+
+**Doğrulanmış.** Bir işin bittiğine dil modeli karar vermez; kapı çıkış kodu
+karar verir (`docs/05`).
+
+### Otonomi, "insan hiç yok" demek değil
+
+Otonomi seviyeli çalışır (`docs/03 §5`): varsayılan `guarded` modda yalnızca
+mimari onayı, yayın onayı ve `high` risk task'ları insana gelir. `full` modda
+proje kapıları da otomatik geçilir — ama **hangi kararların insansız verildiği
+asla gizlenmez**; her biri `decided_by=default` olarak kaydedilir ve raporlanır.
+
+Kapatılamayan tek şey `high` risk task'larıdır: ödeme, kimlik doğrulama, sır,
+yıkıcı migration, dağıtım. Gerekçe basit — modelin özgüveni, riskin gerçek
+büyüklüğüyle ilişkili değildir.
 
 ## 2. Ne değil
 
@@ -56,6 +75,10 @@ kullanarak P2P'yi geliştirmene yarayan iç araç.
 - Claude Pro oturumu → `claude -p` ile mimar/gözden geçiren
 - AI Ultra oturumu → `gemini -p` ile uygulayıcı
 
+Bu ikisi, ürünün desteklediği runtime'ların **ilk ikisidir**; ayrıcalıklı
+değildir. `RuntimeAdapter` ve `Connection` soyutlamaları (`docs/04`) sayesinde
+üçüncü bir runtime eklemek çekirdeğe dokunmaz.
+
 ### 4.2 `p2p` — sattığın/dağıttığın ürün
 
 Başka bir kullanıcının makinesinde, **onun** kimlik bilgisiyle çalışır.
@@ -65,7 +88,14 @@ Başka bir kullanıcının makinesinde, **onun** kimlik bilgisiyle çalışır.
 > teknik olarak imkânsızdır (oturum yerel makineye bağlıdır).
 >
 > Ürün daima **BYOC** (bring your own credentials) modelinde çalışır:
-> kullanıcı kendi `claude` / `gemini` kurulumunu getirir.
+> kullanıcı kendi bağlantılarını getirir — abonelik tabanlı CLI, API anahtarı,
+> yerel model veya gateway. Hepsi tek bir `Connection` soyutlamasıyla temsil
+> edilir (`docs/04 §2`).
+>
+> Ayrıca: bir aboneliğin üçüncü taraf yazılımca otomatik kullandırılmasının
+> **izinli** olup olmadığı teknik bir soru değildir. P2P bu konuda karar
+> vermez ama sessiz de kalmaz: her bağlantı bir `automation_policy` taşır
+> (`docs/04 §3`, `docs/11 V6`).
 
 Bu ayrım kod seviyesinde de korunur: çekirdek motor hiçbir yerde bir kimlik
 bilgisi saklamaz, sadece kullanıcının makinesindeki CLI'ları çağırır.
@@ -76,9 +106,10 @@ v1, aşağıdakiler **kanıtlanabilir** olduğunda başarılıdır:
 
 | # | Kriter | Nasıl ölçülür |
 |---|---|---|
-| S1 | Tek promptan çalışan ürün | `p2p new "..."` akışı, **en fazla 2 zorunlu insan onayıyla** tamamlanıyor → `docker compose up` → tarayıcıda açılıyor |
+| S1 | Tek promptan çalışan ürün | `p2p new "..."` → `guarded` modda en fazla 2 insan onayı → `docker compose up` → tarayıcıda açılıyor |
+| S1b | Gerçek otonomi | `--autonomy full` ile başlatılan bir koşu, insan müdahalesi olmadan en az bir tam `implement → verify → review → fix → verify` döngüsünü tamamlıyor |
 | S2 | Doğrulama gerçek | Bilerek bozulan bir kabul kriteri, pipeline'ı FAIL ettiriyor |
-| S3 | Model bağımsızlığı | Routing config'de `backend: gemini → claude` değişikliği, çekirdek koda dokunmadan çalışıyor |
+| S3 | Model bağımsızlığı | (a) `routing.yaml`'da bağlantı değiştirmek çekirdek koda dokunmadan çalışıyor; (b) çekirdek kaynak kodunda hiçbir sağlayıcı/model adı geçmiyor (grep ile kanıtlanır) |
 | S4 | Yapısal tutarlılık | Aynı prompttan üretilen 3 task graph'ın **hepsinde**: çevrim yok, her MUST kapasitesi kapsanmış, paralel çiftler disjoint, kritik yol uzunluğu ±1 içinde |
 | S5 | Kurtarılabilirlik | Süreç ortasında `Ctrl+C` → `p2p resume` kaldığı yerden devam ediyor |
 | S6 | Şeffaflık | Her adım için "hangi model, hangi prompt, hangi çıktı, hangi maliyet" diskten okunabiliyor |
@@ -90,7 +121,10 @@ gerekçeli bir ADR olmadan girilmeyecek:
 
 - Bulut yürütme, çok kullanıcılı eşzamanlılık, takım işbirliği
 - Kubernetes, mesaj kuyruğu, event sourcing, mikroservis
-- Kendi model gateway'imiz (OmniRoute dahil — bkz. ADR-005)
+- Kendi model gateway'imiz (OmniRoute dahil — bkz. ADR-005). Gateway,
+  `Connection` türü olarak tanımlıdır; adapter'ı Faz 9'da eklenebilir
+- API, yerel model ve gateway adapter'larının **uygulanması** (arayüz v1'de
+  tanımlı, uygulama Faz 9)
 - Web UI (v1 CLI'dır; UI Faz 10+)
 - Mobil uygulama üretimi (Faz 8'de değerlendirilecek, v1'de web+backend)
 - Otomatik production deployment (v1 artifact üretir, deploy etmez)

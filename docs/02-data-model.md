@@ -52,7 +52,8 @@ Sistemin kalbi. Bir agent'a verilen **tek** talimat kaynağı budur.
 |---|---|---|---|
 | `id` | string | ✔ | `API-001` |
 | `title` | string | ✔ | Tek satır, emir kipi |
-| `capability` | enum | ✔ | `architecture` \| `backend` \| `frontend` \| `database` \| `test` \| `browser` \| `security` \| `docs` \| `devops` \| `research` |
+| `capabilities` | enum[] | ✔ | Gerekli yeteneklerin **tamamı**: `architecture` \| `planning` \| `backend` \| `frontend` \| `database` \| `migration` \| `test` \| `browser` \| `security` \| `review` \| `docs` \| `devops` \| `research` |
+| `risk` | enum | ✔ | `low` \| `medium` \| `high` — otonomi ve routing bunu kullanır (`docs/03 §5`) |
 | `depends_on` | string[] | ✔ | Task id listesi (boş olabilir) |
 | `intent` | string | ✔ | 2-5 cümle: ne ve **neden**. Uygulama detayı yok |
 | `acceptance_criteria` | AC[] | ✔ | Bkz. §2.1 — en az 1 tane |
@@ -94,7 +95,8 @@ Bir kabul kriteri **gözlemlenebilir** olmak zorundadır. "Hızlı", "güvenli",
 {
   "id": "API-001",
   "title": "Randevu CRUD uçlarını uygula",
-  "capability": "backend",
+  "capabilities": ["backend", "security"],
+  "risk": "high",
   "depends_on": ["DB-001"],
   "intent": "Randevu kaynağı üzerinde kimliği doğrulanmış CRUD sağlanacak. Sahiplik kontrolü zorunlu; bir kullanıcı başkasının randevusunu göremez veya değiştiremez.",
   "acceptance_criteria": [
@@ -266,31 +268,22 @@ kesin cevabı vardır.
 
 ## 8. RoutingConfig — `.p2p/routing.yaml`
 
-Rol ≠ model. Bu dosya, hangi yeteneğin hangi runtime'a gideceğini tanımlar
-ve çekirdek kodda hiçbir model adı geçmez.
+> Tam şema ve seçim algoritması `docs/04`'tedir. Burada yalnızca veri modeli
+> açısından bağlayıcı olan kısım tutulur.
+
+Yönlendirme **capability tabanlıdır**: bir task hangi yetenekleri gerektirdiğini
+bildirir, router hangi `Connection`'ın onları sağladığına bakar. Çekirdek kodda
+hiçbir sağlayıcı veya model adı geçmez.
 
 ```yaml
+# capability -> uygun bağlantılar (öncelik sırasıyla); tam şema: docs/04 §6
 defaults:
-  architecture: claude
-  review:       claude
-  security:     claude
-  backend:      gemini
-  frontend:     gemini
-  database:     gemini
-  test:         gemini
-  browser:      gemini
-  docs:         gemini
-  research:     gemini
-
-escalation:
-  # aynı task 2 kez aynı kapıdan kalırsa daha güçlü runtime'a taşı
-  on_repeated_failure:
-    backend:  claude
-    frontend: claude
-
-budgets:
-  claude:  { daily_runs: 40,  warn_at: 0.8 }
-  gemini:  { daily_runs: 400, warn_at: 0.8 }
+  architecture: [claude-pro]
+  review:       [claude-pro]
+  security:     [claude-pro]
+  backend:      [gemini-ultra, claude-pro]
+  frontend:     [gemini-ultra, claude-pro]
+  browser:      [gemini-ultra]
 ```
 
 `escalation.on_repeated_failure` küçük ama yüksek getirili bir mekanizmadır:

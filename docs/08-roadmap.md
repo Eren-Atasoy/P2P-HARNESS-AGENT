@@ -4,40 +4,57 @@
 
 1. **Her faz çalışan bir şey bırakır.** Yarım bırakılan faz yoktur.
 2. **Çıkış kriteri gözlemlenebilirdir.** "Tamamlandı" bir komutun çıktısıdır.
-3. **Fantezi paralellik yok.** Tek kişi + iki agent varsayımıyla planlandı.
-4. **Dogfooding Faz 6'da başlar**, önce değil. Çalışmayan bir aracı kendini
-   geliştirmek için kullanmak, iki problemi birbirine düğümler.
+3. **Doğrulanmamış varsayım üstüne faz kurulmaz.** `docs/11`'deki bir madde
+   `DOĞRULANDI` olmadan ona dayanan iş başlamaz.
+4. **Fantezi paralellik yok.** Tek kişi + eldeki runtime'lar varsayımıyla.
+5. **Dogfooding Faz 9'dan sonra başlar.** P2P bir Python CLI'dır; kendi türünde
+   proje üretebilmesi için ikinci bir Blueprint gerekir.
 
-Süre tahminleri tek kişilik odaklanmış çalışma içindir; takvim değil, sıralama
-bağlayıcıdır.
+Süre tahminleri odaklanmış tek kişilik çalışma içindir; takvim değil,
+**sıralama** bağlayıcıdır.
 
 ---
 
-## Faz 0 — Doğrulama ve iskele  (~1 gün)
+## Faz 0 — Runtime fizibilitesi  (~1-2 gün)
 
-**Amaç:** Tüm planın dayandığı varsayımları kanıtlamak.
+**Amaç:** Tüm planın dayandığı varsayımları kanıtlamak; `docs/11`'deki
+doğrulama borcunu kapatmak.
 
-Yapılacaklar:
-- `claude -p` ve `gemini -p` headless çalışıyor mu, JSON dönüyor mu
-- Her ikisi de belirtilen dizine dosya yazabiliyor mu, izin promptunda takılıyor mu
-- Bir `git worktree` içinde `gemini -p` çalışıyor mu
-- `--approval-mode auto_edit` gerçekten kabuk komutunu engelliyor mu
-- Repo iskeleti, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` yerinde
+### Test 1 — Claude runtime
+`claude -p` task kabul ediyor · dosya okuyabiliyor · belirtilen yola JSON
+sonuç yazıyor · yazma izni `.p2p/docs/**` ile sınırlanabiliyor.
 
-**Çıkış kriteri:** Elle yazılmış tek bir kabuk komutu, bir worktree'de
-`gemini`ye dosya yazdırıp `result.json` üretiyor; `claude` o dosyayı okuyup
-inceleme JSON'u yazıyor.
+### Test 2 — Gemini runtime
+`gemini -p` bir `git worktree` içinde çalışıyor · dosya değiştirebiliyor ·
+`--policy` ile **yalnızca test koşucusunu** çalıştırabiliyor, başka komutu
+çalıştıramıyor (ADR-008) · yapılandırılmış sonuç yazıyor · onay istemi
+geldiğinde askıda kalmıyor.
 
-**Risk:** Sağlayıcı CLI'ları beklenen bayrakları desteklemiyor olabilir →
-adapter tasarımı değişir, mimari değişmez.
+### Test 3 — Otonom döngü MVP'si (kritik)
+```
+Claude task üretir -> Gemini uygular -> kapılar koşar ->
+Claude inceler -> Gemini düzeltir -> kapılar yeşil
+```
+**İnsan müdahalesi olmadan.** Elle yazılmış bir script yeterli; amaç mimariyi
+değil, **döngünün fiziksel olarak mümkün olduğunu** kanıtlamak.
+
+### Ek doğrulamalar
+`docs/11`: V3 (Antigravity SDK), V4 (Claude Agent SDK), V7 (sandbox),
+V8 (paralel oturum sınırı).
+
+**Çıkış kriteri:** Test 3 geçiyor. Bu an, tam otonomi vaadinin ilk teknik
+kanıtıdır; geçmezse mimari değil **ürün tanımı** yeniden düşünülür.
+
+**Risk:** Sağlayıcı CLI'ları beklenen davranışı göstermeyebilir → adapter
+tasarımı değişir, çekirdek mimari değişmez (`docs/04 §4`).
 
 ---
 
 ## Faz 1 — Çekirdek veri modeli ve olay deposu  (~2 gün)
 
-- `docs/02`'deki tüm modeller (Pydantic)
-- Append-only olay yazıcı + state türetici
-- `mock` runtime adapter'ı
+- `docs/02`'deki tüm modeller (Pydantic), `Connection` dâhil
+- Append-only olay yazıcı (tek yazar, kilitli) + state türetici
+- `MockRuntime`
 - `p2p status`
 
 **Çıkış:** Elle yazılmış 5 olaydan doğru `state.json` türetiliyor; süreç
@@ -46,91 +63,97 @@ adapter tasarımı değişir, mimari değişmez.
 
 ---
 
-## Faz 2 — Task graph ve scheduler  (~3 gün)
+## Faz 2 — Task graph, scheduler ve router  (~4 gün)
 
 - Bağımlılık çözümü, çevrim tespiti
 - `allowed_paths` çakışma analizi, dalga hesabı
 - Durum makinesi + geçiş doğrulama
 - Retry/escalation sayaçları, ilerleme kontrolü
+- **Capability router:** uygunluk süzgeci + puanlama, `UNROUTABLE` (`docs/04 §5`)
+- **Risk seviyeleri ve otonomi modları** (`docs/03 §5`)
 
-**Çıkış:** `mock` runtime ile 10 task'lık sentetik bir graph, doğru sırayla ve
-doğru paralellikte koşuyor; enjekte edilen hata doğru şekilde escalate oluyor.
-**Bu faz tamamen modelsiz test edilebilir olmalı.**
+**Çıkış:** `MockRuntime` ile 10 task'lık sentetik graph doğru sırayla ve doğru
+paralellikte koşuyor; enjekte edilen hata doğru escalate oluyor; yeteneği
+karşılanmayan task `UNROUTABLE` veriyor; `high` risk task'ı `full` modda bile
+insan kapısına takılıyor. **Bu faz tamamen modelsiz test edilebilir olmalı.**
+
+Faz 2 ve Faz 4 paralel ilerleyebilir.
 
 ---
 
-## Faz 3 — Workspace ve git yöneticisi  (~2 gün)
+## Faz 3 — Workspace, git ve bootstrap  (~3 gün)
 
 - Worktree yaşam döngüsü, dal politikası
 - Commit üretimi, birleştirme sırası, çakışma tespiti
 - `git status` doğrulaması (kapsam ihlali yakalama)
-- **`WORKSPACE_BOOTSTRAP` aşaması (C5):** iskelet, bağımlılık kurulumu
-  (lock'tan), veritabanı ayağa kaldırma, migration, boş proje smoke testi.
-  Task graph'ın parçası değil, ondan önce gelen orchestrator adımı; `GUARDED`
-  sınıfında çalışır
-- Worktree'ler arası bağımlılık dizini paylaşımı (cache) — dört paralel
-  worktree'de dört `node_modules` ilk gerçek koşuda hissedilir
+- **`WORKSPACE_BOOTSTRAP`:** iskelet, bağımlılık kurulumu (lock'tan),
+  veritabanı ayağa kaldırma, migration, boş proje smoke testi
+- Worktree'ler arası bağımlılık dizini paylaşımı (cache)
 
 **Çıkış:** İki sahte task paralel worktree'de çalışıp `integration`'a
-çakışmasız birleşiyor; kapsam dışına yazan sahte task yakalanıp geri alınıyor;
-**boş bir projede bootstrap sonrası tüm kapılar `ERROR` değil `PASS`/`FAIL`
-veriyor.**
+çakışmasız birleşiyor; kapsam dışına yazan task yakalanıp geri alınıyor; boş
+projede bootstrap sonrası kapılar `ERROR` değil `PASS`/`FAIL` veriyor.
 
 ---
 
 ## Faz 4 — Doğrulama motoru  (~3 gün)
 
-- Deklaratif kapı tanımı, çalıştırıcı, zaman aşımı
-- `pytest`/`tsc`/`eslint`/`ruff` çıktı ayrıştırıcıları
+- Deklaratif kapı tanımı, çalıştırıcı, zaman aşımı, `isolation: serialized`
+- `pytest` / `tsc` / `eslint` / `ruff` çıktı ayrıştırıcıları
 - `smoke` kapısı (docker compose)
-- `FAIL` vs `ERROR` ayrımı, hata sınıflandırma
+- `FAIL` / `ERROR` / `QUOTA` ayrımı, hata sınıflandırma
 
-**Çıkış:** Bilerek bozulmuş bir örnek projede her kapı doğru sınıfla düşüyor;
-`Failure[]` yapılandırılmış olarak üretiliyor.
+**Çıkış:** Bilerek bozulmuş örnek projede her kapı doğru sınıfla düşüyor;
+`Failure[]` yapılandırılmış üretiliyor; iki paralel task'ın `smoke` kapısı
+birbirini bozmuyor.
 
 ---
 
-## Faz 5 — Gerçek runtime adapterları  (~3 gün)
+## Faz 5 — Otonom orchestrator  (~5 gün)
 
-- `claude` adapter (mimar/gözden geçiren, yazma kısıtlı)
-- `gemini` adapter (uygulayıcı, worktree kapsamlı)
-- Dar kabuk politikası (ADR-008) ve onay-istemi davranışı (C1)
+Projenin kalbi. Faz 1-4'ün parçalarını, kapanana kadar dönen tek bir döngüde
+birleştirir (`docs/03 §7`).
+
+- Gerçek adapterlar: `ClaudeCodeRuntime`, `GeminiCliRuntime`
 - Prompt derleme katmanları + bağlam bütçesi
-- `routing.yaml`, `p2p doctor`, maliyet günlüğü
+- Dar kabuk politikası (ADR-008), onay-istemi davranışı
+- `routing.yaml`, `Connection` sağlığı, `p2p doctor`, maliyet günlüğü
+- **Otonom yürütme döngüsü:** dispatch, verify, review, repair, devam
+- Döngü sonlandırma: tamamlandı / kilitlendi / insan bekliyor / bütçe doldu
+- İlerleme yok tespiti
 
-**Çıkış:** Elle yazılmış tek bir `TaskContract`, uçtan uca
-implement → verify → review → merge döngüsünden geçiyor. **İlk gerçek yeşil task.**
+**Çıkış:** Elle yazılmış 3 task'lık bir graph `--autonomy full` ile **baştan
+sona insan müdahalesi olmadan** koşuyor; en az bir task doğal olarak fix
+döngüsüne girip çıkıyor; `p2p status` kimin adına hangi kararın verildiğini
+gösteriyor.
 
 ---
 
 ## Faz 6 — Planlama zinciri  (~4 gün)
 
-- Discovery → belirsizlik çıkarımı → insan kapısı (G1)
-- Mimari üretimi → G2
-- Task graph üretimi → G3
+- Discovery, belirsizlik çıkarımı, G1
+- Mimari üretimi, G2
+- Task graph üretimi (risk seviyeleri dâhil), G3
 - ACR mekanizması uçtan uca
 
-**Çıkış:** `p2p new "basit bir yapılacaklar API'si"` → onaylanmış task graph.
-
-Dogfooding **burada başlamaz** (M4): P2P bir Python CLI'dır ve o türde proje
-üretebilmesi için ikinci bir Blueprint gerekir — o da Faz 9'da geliyor.
+**Çıkış:** `p2p new "basit bir yapılacaklar API'si"` sonucunda onaylanmış bir
+task graph.
 
 ---
 
 ## Faz 7 — İlk uçtan uca ürün  (~5 gün)
 
-Tek hedef: **tek promptan çalışan bir ürün.**
+Tek hedef: **tek promptan çalışan ürün.**
 
 Referans senaryo: kimlik doğrulamalı, PostgreSQL'li, Docker'la ayağa kalkan
-bir randevu API'si + minimal web arayüzü.
+randevu API'si + minimal web arayüzü.
 
-**Çıkış:** `p2p new "..."` → `docker compose up` → tarayıcıda çalışıyor;
-tüm kapılar yeşil; `.p2p/` silindiğinde proje normal repo olarak çalışmaya
-devam ediyor.
+**Çıkış:** `p2p new "..."` sonrası `docker compose up` ile ürün tarayıcıda
+çalışıyor; tüm kapılar yeşil; `.p2p/` silindiğinde proje normal repo olarak
+çalışmaya devam ediyor.
 
-**Risk (en yüksek):** Üretilen kod entegrasyon aşamasında dağılabilir.
-Azaltma: `contract` ve `smoke` kapıları Faz 4'te hazır olduğu için sorun
-erken görünür.
+**Risk (en yüksek):** Üretilen kod entegrasyonda dağılabilir. Azaltma:
+`contract` ve `smoke` kapıları Faz 4'te hazır olduğu için sorun erken görünür.
 
 ---
 
@@ -140,31 +163,36 @@ erken görünür.
 - Etki tabanlı regresyon seçimi
 - Tautoloji taraması (sahte test yakalama)
 
-**Çıkış:** Bir kabul kriterini bilerek bozmak, E2E'yi kırmızı yapıyor ve
-doğru task'ı yeniden açıyor.
+**Çıkış:** Bir kabul kriterini bilerek bozmak E2E'yi kırmızı yapıyor ve doğru
+task'ı yeniden açıyor.
 
 ---
 
-## Faz 9 — Açık kaynak sertleştirme  (~4 gün)
+## Faz 9 — Genişletilebilirlik ve açık kaynak  (~5 gün)
 
-- Blueprint arayüzü — ikinci yığın **Python CLI** olarak sabitlenir. Böylece
-  hem arayüz kanıtlanır hem Faz 10'daki dogfooding mümkün hâle gelir (M4)
+Model-bağımsızlık iddiasının **kanıtlandığı** faz. Üçüncü bir adapter çekirdeğe
+dokunmadan eklenene kadar bu bir iddiadır, gerçek değil.
+
+- **`ApiRuntime`** (OpenAI-uyumlu) — `Connection(kind=api)` kanıtı
+- **`OllamaRuntime`** — `Connection(kind=local)` kanıtı
+- Blueprint arayüzü; ikinci yığın **Python CLI** olarak sabitlenir
 - Eklenti arayüzleri: RuntimeAdapter, QualityGate, Blueprint
 - Lisans, katkı rehberi, issue/PR şablonları, `docs/**` İngilizce
-- `p2p audit`, güvenlik sertleştirme
+- `p2p audit`, güvenlik sertleştirme, `a11y` kapısı, mutasyon testi
 - Sürümleme ve yayın süreci
 
-**Çıkış:** Başka bir kişi, README'yi takip ederek kendi makinesinde bir ürün
-üretebiliyor ve yeni bir kapıyı çekirdeğe dokunmadan ekleyebiliyor.
+**Çıkış:** Başka biri README'yi takip ederek kendi makinesinde ürün
+üretebiliyor; yeni bir runtime'ı çekirdeğe dokunmadan ekleyebiliyor;
+`grep -r` çekirdek kaynakta hiçbir sağlayıcı veya model adı bulmuyor.
 
 ---
 
 ## Faz 10 — Kendini geliştirme (tam dogfooding)
 
-P2P'nin yeni özellikleri P2P ile geliştirilir. Bu, hem en güçlü pazarlama
-kanıtı hem de en acımasız kalite testidir.
+P2P'nin yeni özellikleri P2P ile geliştirilir. Hem en güçlü kanıt hem en
+acımasız kalite testi.
 
-**Çıkış:** P2P'ye eklenen bir özelliğin tamamı, P2P tarafından planlanmış,
+**Çıkış:** P2P'ye eklenen bir özelliğin tamamı P2P tarafından planlanmış,
 uygulanmış, doğrulanmış ve birleştirilmiş; `git log` bunu gösteriyor.
 
 ---
@@ -172,16 +200,15 @@ uygulanmış, doğrulanmış ve birleştirilmiş; `git log` bunu gösteriyor.
 ## Kritik yol
 
 ```
-0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
+0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+          Faz 2 ve Faz 4 paralel (ikisi de modelsiz)
 ```
 
-Faz 2 ve 4 **paralel** ilerleyebilir (ikisi de modelsiz). Bunun dışında
-sıralama bağlayıcıdır: her faz bir öncekinin çıkış kriterine dayanır.
-
-## En büyük üç risk
+## En büyük dört risk
 
 | Risk | Neden ölümcül | Azaltma |
 |---|---|---|
-| **Entegrasyon çöküşü** (parçalar tek tek çalışır, birlikte çalışmaz) | Ürün vaadini doğrudan yok eder | `contract` + `smoke` kapıları erken (Faz 4), sözleşme-önce paralellik |
-| **Sağlayıcı CLI değişimi** | Adapter kırılır | Adapter yüzeyi dar, `mock` ile test, `p2p doctor` erken uyarı |
-| **Kapsam kayması** (bulut, UI, çoklu yığın erken) | Faz 7'ye hiç ulaşılamaz | `docs/00 §6` kapsam dışı listesi; girmek ADR gerektirir |
+| **Otonom döngü kapanmıyor** (Faz 0 Test 3) | Ürün vaadinin kendisi | Faz 0'da, kod yazmadan önce kanıtlanır |
+| **Entegrasyon çöküşü** | Vaadi doğrudan yok eder | `contract` + `smoke` erken (Faz 4), sözleşme-önce paralellik |
+| **Sağlayıcı CLI değişimi** | Adapter kırılır | Dar adapter yüzeyi, `MockRuntime` ile test, `p2p doctor` erken uyarı |
+| **Kapsam kayması** | Faz 7'ye hiç ulaşılamaz | `docs/00 §6`; girmek ADR gerektirir |

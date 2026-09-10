@@ -358,3 +358,39 @@ kararıyla korundu.
   — Faz 1'i bloke ediyor
 - Bu belgedeki 5 açık soru: `L` task'ı kim böler · `gates.yaml`'ı kim üretir ·
   regresyon kırmızıysa hangi task suçlu · çoklu capability · `WARN` birikimi
+
+---
+
+## Kapsam Genişlemesi (2026-09-10, ikinci tur)
+
+Bu gözden geçirmeden sonra ürün tanımı genişletildi. Değişiklik iki eksende:
+
+**1. Tam otonomi.** Kullanıcı prompt verir; orchestrator döngüyü kendisi
+çevirir (`docs/03 §7`). Bu, C2 kararını **revize eder**: sabit dört kapı yerine
+risk tabanlı, seviyeli otonomi (ADR-010). `high` risk task'ları hiçbir seviyede
+otomatik geçmez; otomatik verilen her karar `decided_by=default` kaydedilir.
+
+**2. Model-bağımsızlık.** Claude + Gemini sabit iki runtime değil, ilk iki
+`Connection`. Yedi kavram ayrıldı, yönlendirme capability tabanlı hâle geldi
+(ADR-009, `docs/04` yeniden yazıldı).
+
+### Bu turda ortaya çıkan yeni bulgular
+
+| # | Bulgu | Çözüm |
+|---|---|---|
+| **N1** | Doğrulanmamış vendor iddiaları mimariye girme riski taşıyordu (Antigravity SDK, Claude Agent SDK, model adları) | `docs/11` doğrulama borcu belgesi; hiçbir faz `DOĞRULANMADI` bir maddeye dayanamaz |
+| **N2** | PyPI'daki `antigravity` paketi Google'ın SDK'sı **değil** — xkcd şakası paketi. Uygulayıcı agent bunu sessizce kurabilirdi | `docs/11 V3`'te açık uyarı |
+| **N3** | Router uygun bağlantı bulamazsa otonom koşu sessizce durabilirdi | `UNROUTABLE` durumu + somut hata mesajı (`docs/04 §5`) |
+| **N4** | Otonom döngünün bitmeme ihtimali | Dört meşru çıkış + "ilerleme yok" tespiti (`docs/03 §7.2`) |
+| **N5** | Çok bağlantılı kurulumda yeni saldırı yüzeyi (kimlik karışması, kötücül gateway, denetimsiz otonomi) | T11-T13 tehditleri + `docs/06 §9, §10` |
+| **N6** | Abonelik otomasyonunun lisans durumu teknik olarak çözülemez | `automation_policy` alanı: sistem karar vermez, sessiz de kalmaz (`docs/04 §3`) |
+
+### Roadmap'e etkisi
+
+Faz 0 artık **runtime fizibilitesi**: üç test, üçüncüsü otonom döngü MVP'si.
+Faz 5 **otonom orchestrator** oldu. Faz 9, model-bağımsızlığın kanıtlandığı
+faz — üçüncü ve dördüncü adapter eklenerek.
+
+`docs/08 Faz 0`'ın "auto_edit kabuk komutunu engelliyor mu" maddesi ADR-008'e
+göre düzeltildi; "Dogfooding Faz 6'da başlar" prensibi Faz 9 sonrasına taşındı.
+Baseline commit'teki iki bilinen kalıntı böylece kapandı.

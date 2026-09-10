@@ -258,25 +258,66 @@ ACR şablonu (`prompts/` altında):
 - Geçici çözüm mümkün mü: evet/hayır + maliyeti
 ```
 
-## 5. İnsan karar kapıları
+## 5. Otonomi ve risk tabanlı insan kapıları
 
-Bunlar hız kaybı değil, ürünün kalite tanımıdır. v1'de **dört** zorunlu kapı:
+Ürünün vaadi tam otonomi (`docs/00 §1`). Ama "her karar makineye" ile "her
+karar insana" arasındaki doğru nokta, **riske göre değişir**. Bir lint
+düzeltmesiyle bir üretim veritabanı migration'ı aynı muameleyi görmemeli.
 
-| # | Kapı | Ne zaman | Neden otomatik olamaz |
+### 5.1 Task risk seviyeleri
+
+Risk, mimar agent'ın keyfi takdiri değil; task'ın **neye dokunduğundan**
+türetilir ve doğrulanabilir bir kuraldır:
+
+| Seviye | Tetikleyici | Örnek |
+|---|---|---|
+| `low` | Yalnızca sunum, biçim, belge, iç refactor | lint düzeltme, UI aralıkları, docstring |
+| `medium` | İş mantığı, veri şeması, dış entegrasyon | yeni uç, şema alanı, API istemcisi |
+| `high` | Kimlik doğrulama/yetkilendirme, ödeme, sır, yıkıcı migration, dağıtım | auth akışı, faturalama, `DROP COLUMN` |
+
+Kural: bir task `high` risk kategorisindeki dosyalara veya kavramlara
+dokunuyorsa risk **yükseltilir, asla düşürülmez**. Planlayıcı bunu düşük
+gösteremez.
+
+### 5.2 Otonomi seviyeleri
+
+```
+p2p run --autonomy supervised | guarded | full
+```
+
+| Seviye | Proje kapıları | Task kapıları | Kime |
 |---|---|---|---|
-| G1 | **Belirsizlik çözümü** | Discovery sonrası | Ürün kararı; yanlış varsayım tüm ağacı çürütür |
-| G2 | **Mimari onayı** | Architecture sonrası | Geri dönüşü en pahalı karar |
-| G3 | **Kapsam onayı** | Task graph üretildikten sonra | Maliyet burada belirlenir |
-| G4 | **Yayın onayı** | Regresyon sonrası | Dışa dönük eylem |
+| `supervised` | G1 G2 G3 G4 | `medium` + `high` | İlk kullanım, öğrenme |
+| `guarded` **(varsayılan)** | G2 G4 | `high` | Günlük kullanım |
+| `full` | — | `high` | Gece koşusu, güvenilen alan |
 
-Bu dört kapı, `docs/00 §1`'deki vaadin parçasıdır: ürün "tek promptla ürün"
-değil, "tek promptla, **iki zorunlu onayla** doğrulanmış ürün"dür. G1 ve G3
-`--yes` ile atlanabildiği için zorunlu sayı ikidir (G2, G4). (C2)
+Proje kapıları:
 
-Ek olarak `human_approval=true` olan tek tek task'lar ve tüm `ESCALATED`'lar.
+| # | Kapı | Ne zaman |
+|---|---|---|
+| G1 | Belirsizlik çözümü | Discovery sonrası |
+| G2 | Mimari onayı | Architecture sonrası |
+| G3 | Kapsam onayı | Task graph sonrası |
+| G4 | Yayın onayı | Regresyon sonrası |
 
-`--yes` bayrağı G1 ve G3'ü atlayabilir (varsayılanları kullanır, `Decision`
-kaydına `decided_by=default` yazar). **G2 ve G4 atlanamaz.**
+### 5.3 `full` seviyesinde bile kapatılamayan tek şey
+
+`high` risk task'ları. Gerekçe: bunlar geri alınamayan veya para/veri kaybettiren
+eylemlerdir ve modelin özgüveni, riskin gerçek büyüklüğüyle ilişkili değildir.
+
+`full` seviyesinde G2 ve G4 **otomatik onaylanır**, ancak sessizce değil:
+her biri `Decision` kaydına `decided_by=default` olarak yazılır ve
+`p2p status` bunları ayrıca listeler. Kullanıcı, sabah kalktığında hangi
+kararların kendisi adına verildiğini tek ekranda görür.
+
+> Bu, `docs/00 §1`'deki vaadin tam karşılığıdır: sistem uçtan uca otonom
+> çalışabilir, ama **hangi kararların insansız verildiği asla gizlenmez.**
+
+### 5.4 Yönlendirilemeyen task: `UNROUTABLE`
+
+Router hiçbir uygun bağlantı bulamazsa (`docs/04 §5`) task `ESCALATED` olur.
+Bu, otonom bir koşunun sessizce durmasının en olası nedenidir; mesaj bu yüzden
+somut olmak zorundadır: hangi yetenek eksik, hangi bağlantı eklenmeli.
 
 ## 6. Kurtarılabilirlik
 
@@ -292,3 +333,78 @@ Herhangi bir anda `Ctrl+C` veya çökme:
 4. Yarım kalmış alt process'ler run_id ile tespit edilip temizlenir
 
 Bu, uzun süren üretimlerde (saatler) pazarlık konusu olmayan bir özelliktir.
+
+---
+
+## 7. Otonom yürütme döngüsü
+
+Orchestrator'ın `plan → implement → review` şeklinde doğrusal bir akışı yoktur.
+Durum makinesini ilerleten, kapanana kadar dönen tek bir döngüsü vardır.
+
+```
+while proje_bitmedi:
+
+    1. ready      = graph.hazır_taskları()        # bağımlılıklar tamam
+    2. dalga      = scheduler.paketle(ready)      # allowed_paths disjoint
+    3. atamalar   = router.seç(dalga)             # capability + risk + policy
+                    ↳ uygun bağlantı yoksa → UNROUTABLE → escalate
+    4. sonuçlar   = runtime.paralel_çalıştır(atamalar)
+    5. kapılar    = verification.çalıştır(sonuçlar)
+                    ↳ kaynak kapıları semaforla serileştirilir (§2.5)
+    6. sınıflar   = failure.sınıflandır(kapılar)
+    7. incelemeler= review.çalıştır(geçenler)
+    8. yeni_task  = repair.planla(sınıflar + incelemeler)
+    9. escalate   = policy.kontrol(sayaçlar, bütçe, risk)
+   10. state.uygula(olaylar)                      # tek yazar
+
+    if hiçbir_ilerleme_yok:  break                # §7.2
+```
+
+Kullanıcı `p2p run` der ve gider. Sistem gece boyunca task → kod → test →
+inceleme → düzeltme → yeniden test → sonraki task döngüsünü sürdürür.
+
+### 7.1 Döngü değişmezleri
+
+Her turda doğru kalması gereken şeyler; ihlali bir hatadır:
+
+1. Her task tam olarak bir durumda
+2. Çalışan iki task'ın `allowed_paths`'i kesişmiyor
+3. Her durum geçişi bir olay yazdı
+4. Hiçbir agent state'e yazmadı (ADR-003)
+5. Aktif çalıştırma sayısı ≤ her bağlantının `limits.concurrency` toplamı
+
+### 7.2 Döngü nasıl biter
+
+Dört meşru çıkış var. Beşincisi yok — sonsuz dönen bir döngü hatadır.
+
+| Çıkış | Koşul |
+|---|---|
+| **Tamamlandı** | Tüm task'lar `DONE`, regresyon yeşil |
+| **Kilitlendi** | `READY` task yok, ama `PENDING` var → bağımlılık grafiği hatalı veya hepsi bloke |
+| **İnsan bekliyor** | Çalıştırılabilir hiçbir task yok, ≥1 `ESCALATED` / kapı bekliyor |
+| **Bütçe doldu** | Süre veya çalıştırma bütçesi aşıldı |
+
+**İlerleme yok tespiti:** bir turda hiçbir olay yazılmadıysa ve hiçbir yeni
+task hazır hâle gelmediyse döngü kendini durdurur. Bu, "sistem çalışıyor
+görünüyor ama hiçbir şey olmuyor" durumunun tek savunmasıdır — ve otonom
+sistemlerde en pahalı başarısızlık biçimi budur.
+
+### 7.3 Kısmi başarı meşru bir sonuçtur
+
+Otonom bir koşu, "her şey oldu" veya "hiçbir şey olmadı" ile bitmek zorunda
+değil. Sabah kullanıcının göreceği tipik çıktı:
+
+```
+p2p status
+
+  DONE          14 task
+  ESCALATED      2 task   (AUTH-003: 3 denemede geçemedi
+                           E2E-001 : UNROUTABLE — 'browser' sağlayan bağlantı yok)
+  PAUSED         1 task   (kota — claude-pro, ~06:00'da sıfırlanır)
+  otomatik karar 2 adet   (G2, G4 — decided_by=default)
+
+  ürün ayakta:  http://localhost:3000    (14/17 kabul kriteri doğrulandı)
+```
+
+Bu ekran ürünün kendisidir: ne yapıldığı, ne yapılamadığı ve **kimin adına
+hangi kararın verildiği** tek bakışta görünür.

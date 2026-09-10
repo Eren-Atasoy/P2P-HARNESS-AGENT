@@ -26,6 +26,9 @@ Güvenlik sınırının iki tarafı vardır:
 | T8 | **Kaynak tükenmesi** | Sonsuz döngü, kota yakma, disk doldurma | Hizmet/para kaybı | `docs/03 §3.2` |
 | T9 | **Ağ sızdırma** | Agent kodu/sırrı dışarı POST eder | Veri ihlali | §8 |
 | T10 | **Zehirlenmiş proje talimatı** | Klonlanan repodaki `AGENTS.md`/`CLAUDE.md` | Ayrıcalık yükseltme | §3 |
+| T11 | **Kimlik bilgisi karışması** | Çok bağlantılı kurulumda bir sağlayıcının sırrı diğerine gider | Kimlik ifşası | §11 |
+| T12 | **Güvenilmeyen runtime/gateway** | Kullanıcı kötücül bir gateway veya yerel uç ekler | Tüm kod ve promptlar üçüncü tarafa akar | §11 |
+| T13 | **Denetimsiz otonomi** | `--autonomy full` ile gece boyu koşu | Yıkıcı eylem zinciri fark edilmeden ilerler | §12 |
 
 ## 3. T1/T10 — Prompt injection savunması
 
@@ -129,7 +132,39 @@ okuma için gerekli), ancak:
 
 Tam ağ izolasyonu (kayıtlı proxy) Faz 9'da değerlendirilecek bir sertleştirmedir.
 
-## 9. Denetim izi
+## 9. Bağlantı güvenliği (T11, T12)
+
+Çok bağlantılı bir dünyada yeni bir saldırı yüzeyi doğar: **kullanıcının
+kendi eklediği bağlantı.**
+
+| Kural | Gerekçe |
+|---|---|
+| Bir çalıştırmaya **yalnızca seçilen bağlantının** kimlik bilgisi görünür | Bir sağlayıcının anahtarı diğerinin process'ine sızmaz (T11) |
+| `credential_ref` bir işaretçidir; P2P sırrı **saklamaz** | Sızdıracak bir depo yok (`docs/04 §2`) |
+| Bir bağlantının uç noktası varsayılan olarak bilinen sağlayıcı listesinden gelir; özel uç **açık onay** ister | Kötücül gateway sessizce eklenemez (T12) |
+| Özel uç noktalı bir bağlantı `high` risk task alamaz | Sır ve ödeme mantığı bilinmeyen bir uca gitmez |
+| `automation_policy: prohibited` olan bağlantı router tarafından **hiç** seçilmez | `docs/04 §3` |
+
+`p2p doctor` her bağlantı için nereye bağlandığını açıkça yazar. "Hangi
+sunucuya gitti" sorusunun cevabı hiçbir zaman tahmin olmamalı.
+
+## 10. Otonomi güvenliği (T13)
+
+Otonomi arttıkça, bir hatanın fark edilmeden ilerleyebileceği mesafe artar.
+Karşı-önlemler `docs/03 §5`'te tanımlı ve burada güvenlik gereksinimi olarak
+tekrarlanır:
+
+1. `high` risk task'ları **hiçbir otonomi seviyesinde** otomatik geçmez
+2. `FORBIDDEN` eylem sınıfı bayrakla bile açılmaz
+3. `full` modda otomatik verilen her karar `decided_by=default` olarak
+   kaydedilir ve raporda **ayrıca** listelenir
+4. Bütçe (süre + çalıştırma) aşıldığında döngü durur
+5. İlerleme yoksa döngü kendini durdurur
+
+Beşinci madde bir güvenlik önlemidir, performans önlemi değil: sonsuz dönen
+otonom bir sistem, kotayı ve diski tüketirken hiçbir değer üretmez.
+
+## 11. Denetim izi
 
 Her ayrıcalıklı eylem olay günlüğüne yazılır: kim (runtime+capability),
 ne (eylem), nerede (yol), ne zaman, hangi politikayla izin verildi.
@@ -137,13 +172,14 @@ ne (eylem), nerede (yol), ne zaman, hangi politikayla izin verildi.
 `p2p audit` bu günlükten insan-okunur bir rapor üretir. Bu, hem hata ayıklama
 hem de kurumsal kullanımın ön koşuludur.
 
-## 10. Güvenli varsayılanlar
+## 12. Güvenli varsayılanlar
 
 | Ayar | Varsayılan |
 |---|---|
 | Onay modu | En kısıtlayıcı çalışan mod |
 | Ağ | Açık ama kabuksuz |
-| İnsan kapıları | Açık (G2, G4 kapatılamaz) |
+| Otonomi seviyesi | `guarded` (G2, G4 + `high` risk task'ları) |
+| `automation_policy` | `unknown` (iyimser varsayım yok) |
 | Yıkıcı git | Kapalı |
 | Otomatik deploy | Kapalı |
 | Telemetri | Kapalı (opt-in) |

@@ -42,6 +42,23 @@ owned by other tasks. The schema task owns the models directory; the API task
 must be forbidden from it, or it will "just fix" a column and silently fork
 the design.
 
+## Capabilities and risk
+
+Every task declares `capabilities[]` (all of them — a missing capability routes
+the work to a connection that cannot do it) and a `risk` level.
+
+Risk is **derived from what the task touches**, never from how hard it feels:
+
+| Level | Trigger |
+|---|---|
+| `low` | Presentation, formatting, documentation, internal refactor |
+| `medium` | Business logic, data schema, external integration |
+| `high` | Authentication/authorization, payments, secrets, destructive migration, deployment |
+
+`high` is never downgraded. A task that touches auth *and* presentation is
+`high`. When in doubt, raise it — the cost of an unnecessary review is minutes;
+the cost of an unreviewed auth bug is the product.
+
 ## Acceptance criteria
 
 Every criterion is observable and carries a `test_ref` or `gate_ref`.

@@ -31,26 +31,34 @@ proje ölür. Olay günlüğü bunu garanti eder.
                                 │
       ┌─────────────────────────▼──────────────────────────┐
       │                  Orchestrator                      │
-      │   task graph · scheduler · state machine · retry    │
-      └──┬─────────┬──────────┬──────────┬──────────┬──────┘
-         │         │          │          │          │
-   ┌─────▼───┐┌────▼─────┐┌───▼─────┐┌───▼─────┐┌───▼──────┐
-   │ Policy  ││ Runtime  ││Workspace││Verifi-  ││ Event    │
-   │ Engine  ││ Registry ││ Manager ││cation   ││ Store    │
-   │(izinler)││(adapter) ││(git/fs) ││ Engine  ││(JSONL)   │
-   └─────────┘└────┬─────┘└────┬────┘└───┬─────┘└──────────┘
-                   │           │         │
-        ┌──────────┼───┐       │    ┌──────────────────┐
-        │          │   │       │    │ pytest/tsc/lint/ │
-   ┌────▼───┐ ┌────▼──┐│       │    │ playwright/smoke │
-   │claude  │ │gemini ││       │    └──────────────────┘
-   │ -p     │ │ -p    ││       │
-   └────────┘ └───────┘│       │
-                       └───────┤
-                        ┌──────▼────────┐
-                        │ generated repo│
-                        │ + git worktree│
-                        └───────────────┘
+      │  task graph · scheduler · state machine · otonom   │
+      │  döngü · retry · escalation                        │
+      └──┬────────┬─────────┬─────────┬─────────┬──────────┘
+         │        │         │         │         │
+   ┌─────▼────┐┌──▼──────┐┌─▼───────┐┌▼────────┐┌▼─────────┐
+   │  Policy  ││Capability││Workspace││ Verifi- ││  Event   │
+   │  Engine  ││  Router  ││ Manager ││  cation ││  Store   │
+   │izin+risk ││cap+risk→ ││ git/fs  ││ Engine  ││  JSONL   │
+   │+otonomi  ││ bağlantı ││worktree ││         ││tek yazar │
+   └──────────┘└────┬─────┘└─────────┘└────┬────┘└──────────┘
+                    │                      │
+        ┌───────────▼────────────┐    ┌────▼──────────────┐
+        │  Connection Registry   │    │ lint · typecheck  │
+        │  + Runtime Adapters    │    │ unit · contract   │
+        │                        │    │ smoke · e2e · sec │
+        │ subscription│api│local │    └───────────────────┘
+        │        │gateway        │
+        └───┬────────┬───────┬───┘
+            │        │       │
+       ┌────▼───┐┌───▼───┐┌──▼────────┐
+       │ claude ││gemini ││ api/local │   ← v1'de ilk ikisi
+       │  -p    ││  -p   ││ (Faz 9)   │      uygulanır
+       └────────┘└───────┘└───────────┘
+                    │
+             ┌──────▼────────┐
+             │ generated repo│
+             │ + git worktree│
+             └───────────────┘
 ```
 
 ## 3. Modüller ve sorumluluklar
@@ -63,11 +71,12 @@ Bağımlılık yönü **daima yukarıdan aşağıya**. Alt katman üstü tanıma
 | `app` | Use-case orkestrasyonu (`new`, `plan`, `run`, `resume`, `status`) | Zamanlama, model seçimi |
 | `orchestrator` | Task graph, scheduler, state machine, retry, escalation | Model çağırma, kabuk komutu |
 | `runtime` | Bir agent'ı çalıştırıp `AgentResult` döndürmek | Ne çalıştırılacağına karar vermek |
+| `connections` | Kullanıcının AI erişimlerini kaydetmek, sağlığını ve politikasını izlemek | Seçim yapmak |
 | `workspace` | Dizin düzeni, git, worktree, artifact yolları | Task durumu |
 | `verification` | Kalite kapılarını çalıştırıp `GateResult` döndürmek | Sonuca göre karar vermek |
 | `policy` | Bir eylemin izinli olup olmadığına karar vermek | Eylemi yapmak |
 | `events` | Append-only olay yazımı + state türetimi | Yorumlama |
-| `routing` | capability → runtime eşlemesi | Adapter detayı |
+| `router` | (capabilities + risk + policy) → `Connection` seçimi; uygun yoksa `UNROUTABLE` | Adapter detayı, çağrı biçimi |
 
 ### Altın kural: tek yazar
 
@@ -92,6 +101,9 @@ kullanıcı promptu
    ▼
 [PLANNING]   claude ── task graph (bağımlılıklar + kabul kriterleri)
    │
+   ▼
+[ROUTING]    router ────── her task için capability + risk → Connection
+   │                          ↳ uygun bağlantı yoksa → UNROUTABLE
    ▼
 [SCHEDULING] orchestrator ─ topolojik sıra, paralel dalga hesabı
    │
@@ -149,6 +161,7 @@ uyumlu bir eklemedir. (ADR-002)
 ├── .git/
 ├── .p2p/                  ← P2P metadata (üretilen uygulamadan tamamen ayrık)
 │   ├── project.json       ← ürün tanımı, teknoloji seçimi (değişmez)
+│   ├── routing.yaml       ← bağlantılar, yetenekler, politika (docs/04 §6)
 │   ├── events.jsonl       ← doğruluk kaynağı
 │   ├── state.json         ← türetilmiş görünüm (gitignore)
 │   ├── tasks/*.json       ← task sözleşmeleri
@@ -189,9 +202,10 @@ Prensip: **sıkıcı ve sağlam** teknoloji.
 v1'de gerçek bir eklenti sistemi **yok**, ama üç genişleme noktası arayüz
 olarak tanımlı ve ileride eklenti haline gelecek:
 
-1. **RuntimeAdapter** — yeni agent runtime (`docs/04`)
-2. **QualityGate** — yeni doğrulama kapısı (`docs/05`)
+1. **RuntimeAdapter** — yeni agent runtime (`docs/04 §4`)
+2. **QualityGate** — yeni doğrulama kapısı (`docs/05 §6`)
 3. **Blueprint** — yeni proje şablonu / teknoloji yığını
+4. **Capability** — yeni yetenek türü (yalnızca veri; kod değişikliği gerektirmez)
 
 Bu üçü dışında hiçbir şey v1'de genişletilebilir yapılmayacak. Erken
 soyutlama hem katkıcıyı hem bizi yavaşlatır.

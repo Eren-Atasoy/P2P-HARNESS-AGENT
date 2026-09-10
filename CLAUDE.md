@@ -45,12 +45,19 @@ not an inline decision.
 2. Append-only event log is the source of truth; `state.json` is derived (ADR-002)
 3. Only the orchestrator writes orchestration state (ADR-003)
 4. Quality decisions are deterministic — never delegated to a model (ADR-004)
-5. No model gateway in v1; the abstraction point is `RuntimeAdapter` (ADR-005)
+5. No model gateway in v1; the abstraction point is `RuntimeAdapter` and
+   `Connection` (ADR-005, ADR-009). A gateway sits *below* a Connection, never
+   above the orchestrator
 6. Parallel tasks are isolated by git worktree (ADR-006)
 7. Implementers may not change architecture; they file an ACR (ADR-007)
 8. No provider or model name appears in core code — only in `routing.yaml`
 9. Generated projects must remain usable after `.p2p/` is deleted
 10. Implementers get shell access to the test runner only, nothing else (ADR-008)
+11. Routing is capability-based. No provider or model name may appear in core
+    code — only in `routing.yaml` (ADR-009)
+12. Autonomy is levelled. `high` risk tasks are never auto-approved at any
+    level, and every auto-approved gate is recorded as `decided_by=default`
+    (ADR-010)
 
 ## 4. Writing task contracts
 
@@ -66,6 +73,11 @@ Every contract must satisfy:
 - [ ] `forbidden_paths` explicitly names adjacent areas owned by other tasks
 - [ ] `depends_on` is complete — a missing dependency causes silent breakage
 - [ ] `estimated_size` is honest; anything `L` must be split before scheduling
+- [ ] `capabilities` lists **every** capability the task needs — a missing one
+      routes the work to a connection that cannot do it
+- [ ] `risk` is derived from what the task touches, never from how hard it
+      feels. Auth, payments, secrets, destructive migrations and deployment are
+      `high` — always, with no exceptions and no downgrades
 - [ ] Two contracts that can run in parallel have **disjoint** `allowed_paths`
 
 Security criteria are injected, not optional. Any task touching authentication,

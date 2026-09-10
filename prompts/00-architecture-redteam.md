@@ -9,9 +9,14 @@ are accountable if the team builds it and it fails.
 
 Read, in this order:
 `docs/00-vision.md`, `docs/01-architecture.md`, `docs/02-data-model.md`,
-`docs/03-orchestration.md`, `docs/04-runtime-adapters.md`,
+`docs/03-orchestration.md`, `docs/04-provider-architecture.md`,
 `docs/05-verification.md`, `docs/06-security.md`, `docs/07-git-ci.md`,
-`docs/08-roadmap.md`, all of `docs/adr/`, plus `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`.
+`docs/08-roadmap.md`, `docs/09-workflow.md`, `docs/10-open-decisions.md`,
+`docs/11-verification-backlog.md`, all of `docs/adr/`, plus `AGENTS.md`,
+`CLAUDE.md`, `GEMINI.md`.
+
+Pay particular attention to `docs/11`: any decision that rests on an
+unverified assumption is a finding, not a detail.
 
 Then attack the design specifically on:
 

@@ -131,3 +131,83 @@ test yazmaya iter — `docs/05 §7`'deki mutasyon örneklemesi gerçek sinyaldir
 Yukarıdakilerden **D1 ve D2** Faz 1'i bloke eder. Diğerleri Faz 9'a kadar
 bekleyebilir ama beklediklerini bilerek beklemelisin — unutulmuş karar,
 verilmiş karardan daha pahalıdır.
+
+---
+
+# Kapsam genişlemesiyle gelen yeni kararlar (2026-09-10)
+
+Aşağıdakiler, otonomi + çok-runtime kapsamına geçişle açılan kararlardır.
+
+## D9 — Varsayılan otonomi seviyesi
+
+`docs/03 §5`'te üç seviye var: `supervised`, `guarded`, `full`.
+
+**Öneri: `guarded`.** Gerekçe: `supervised` ilk deneyimde ürünü yavaş ve
+sıradan gösterir; `full` ise kullanıcı henüz sisteme güvenmeden onu riske atar.
+`guarded`, vaadi (iki onay) tutarken `high` risk korumasını da açık bırakır.
+
+İlk kez çalıştıranlar için tek seferlik bir `supervised` önerisi gösterilebilir.
+
+- [ ] Karar: ______
+
+---
+
+## D10 — v1'de kaç runtime uygulanacak
+
+Arayüz dört `Connection` türünü tanımlıyor; uygulama ayrı bir maliyet.
+
+| Seçenek | Sonuç |
+|---|---|
+| Yalnızca `claude_code` + `gemini_cli` | En hızlı Faz 7; model-bağımsızlık **kanıtlanmamış iddia** kalır |
+| + `ApiRuntime` (Faz 9) | İddia kanıtlanır; ~2 gün |
+| + `OllamaRuntime` (Faz 9) | Yerel/gizli senaryo açılır; ~1 gün |
+
+**Öneri:** v1 çekirdeğinde ilk ikisi; Faz 9'da `ApiRuntime` + `OllamaRuntime`
+birlikte. Gerekçe: bir soyutlamanın doğruluğu, ancak **üçüncü** uygulama
+eklendiğinde kanıtlanır. İki uygulama her zaman uyar.
+
+- [ ] Karar: ______
+
+---
+
+## D11 — `automation_policy` varsayılanı ne kadar katı olmalı
+
+`docs/04 §3`, varsayılanı `unknown` yapıp ilk kullanımda uyarı gösteriyor.
+
+Alternatif: `unknown` bağlantıları **hiç kullanmamak** (kullanıcı açıkça
+`allowed` işaretlemeden). Daha güvenli ama ilk çalıştırmada sürtünme yaratır.
+
+**Öneri:** `unknown` + tek seferlik onay. Gerekçe: sistem kullanıcı adına
+hukuki karar veremez; ama onu kararı vermeye zorlamak, sessizce varsaymaktan
+iyidir. Uyarının metni sağlayıcı adı içermemeli — kullanıcı kendi
+sözleşmesini kontrol etmeli.
+
+- [ ] Karar: ______
+
+---
+
+## D12 — Risk sınıflandırmasını kim tanımlar
+
+`docs/03 §5.1` riski "task'ın neye dokunduğundan" türetiyor. Bu kuralın
+kendisi nerede yaşayacak?
+
+| Seçenek | Artı | Eksi |
+|---|---|---|
+| Kod içinde sabit | Basit, kaçırılamaz | Yığına göre değişemez |
+| `risk-rules.yaml` (veri) | Blueprint başına ayarlanabilir, gözden geçirilebilir | Yanlış yapılandırma korumayı kapatabilir |
+| Mimar agent takdir eder | Esnek | **Reddedilmeli** — modelin özgüveni riski ölçmez |
+
+**Öneri:** veri olarak `risk-rules.yaml`, ama **taban kural kodda sabit**:
+auth, ödeme, sır, yıkıcı migration ve dağıtım her zaman `high` — yapılandırma
+bunu düşüremez, yalnızca genişletebilir.
+
+- [ ] Karar: ______
+
+---
+
+## Öncelik
+
+**Faz 1'i bloke edenler:** D1 (dil), D2 (referans yığın)
+**Faz 2'yi bloke edenler:** D9 (otonomi varsayılanı), D12 (risk kuralları)
+**Faz 5'e kadar bekleyebilir:** D11
+**Faz 9'a kadar bekleyebilir:** D3-D8, D10
