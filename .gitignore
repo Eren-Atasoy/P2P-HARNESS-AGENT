@@ -7,3 +7,5 @@ __pycache__/
 node_modules/
 .env
 .DS_Store
+experiments/faz0/workspace/
+experiments/faz0/runs/

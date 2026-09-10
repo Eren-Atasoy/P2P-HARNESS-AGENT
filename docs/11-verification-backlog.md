@@ -9,7 +9,24 @@ Her madde şu üç durumdan birindedir:
 
 ---
 
-## V1 — `gemini` CLI headless çalışıyor · **DOĞRULANDI** (2026-09-09)
+## V1 — `gemini` CLI headless çalışıyor · **KISMEN** (2026-09-10)
+
+> **Faz 0 Test 3 bulgusu:** İkili ve bayraklar doğru, ama **kimlik doğrulaması
+> yok**. Headless çağrı şu hatayla düşüyor:
+> *"Please set an Auth method in your `.gemini/settings.json` or specify one of:
+> GEMINI_API_KEY, GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_GENAI_USE_GCA"*
+>
+> `.gemini/settings.json` yok, OAuth kaydı yok. Antigravity kendi kimliğini
+> `.gemini/antigravity/` altında tutuyor ve **CLI onu kullanmıyor** — ayrı
+> oturum gerekiyor.
+>
+> **Çözüm:** bir kez interaktif `gemini` çalıştırıp *Login with Google* seçmek.
+> Sonrasında headless çağrılar aynı oturumu kullanır.
+>
+> Bu, `Connection.health = unauthenticated` durumunun (`docs/04 §2`) gerçek
+> hayattaki ilk örneği; `p2p doctor`'ın yakalaması gereken şey tam olarak budur.
+
+### Bayraklar (doğrulandı)
 
 `@google/gemini-cli` 0.58.0 kurulu. `--help` çıktısı şunları doğruluyor:
 `-p/--prompt` (headless), `--output-format json|stream-json`,

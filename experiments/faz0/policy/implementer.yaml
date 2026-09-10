@@ -1,0 +1,16 @@
+# ADR-008: uygulayıcı agent yalnızca test koşucusunu çalıştırabilir.
+# NOT: gemini-cli policy şemasının tam biçimi docs/11'de DOĞRULANMADI.
+# run.py bu dosyayı geçirmeyi dener; reddedilirse politikasız devam eder ve
+# raporda "dar kabuk politikası uygulanamadı" der. Sessizce geçmez.
+rules:
+  - toolName: run_shell_command
+    argsPattern: "^(python -m pytest|pytest)( |$)"
+    decision: allow
+  - toolName: run_shell_command
+    decision: deny
+  - toolName: replace
+    decision: allow
+  - toolName: write_file
+    decision: allow
+  - toolName: read_file
+    decision: allow
