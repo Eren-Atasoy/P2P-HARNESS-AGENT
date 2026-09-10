@@ -230,6 +230,7 @@ Belirsizlik çözümü bir birinci sınıf kayıttır; prompt geçmişinde kaybo
 | `chosen` | string |
 | `rationale` | string |
 | `decided_by` | `human` \| `default` |
+| `kind` | `ambiguity` \| `gate` \| `steer` \| `retro` |
 | `decided_at` | datetime |
 
 `decided_by=default` → sistem varsayılanı kullandı, insan görmedi. Bu kayıtlar
@@ -258,6 +259,8 @@ RUN_STARTED          RUN_FINISHED         GATE_FINISHED
 REVIEW_FINISHED      DECISION_RECORDED    ACR_OPENED
 ACR_RESOLVED         POLICY_VIOLATION     MERGE_COMPLETED
 HUMAN_APPROVED       HUMAN_REJECTED       ESCALATED
+TASK_PAUSED          TASK_UNROUTABLE      HUMAN_STEERED
+RETRO_APPLIED        CONNECTION_HEALTH    BUDGET_EXCEEDED
 ```
 
 `state.json` bu günlüğün baştan oynatılmasıyla üretilir. Bu tasarımın

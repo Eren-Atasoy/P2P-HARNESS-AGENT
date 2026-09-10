@@ -90,6 +90,11 @@ Bunlar Faz 5'te `p2p run` içine gömülür. Şimdilik elle çalıştırılması
 | Bir kapı 2 kez elle kontrol edildi | Kapı tanımına ekle |
 | Bir varsayıma 2 kez güvendin | `docs/11`'e doğrulama maddesi olarak ekle |
 
+Faz 8'den sonra bu tabloyu elle taramana gerek kalmaz: `p2p retro` aynı
+kalıpları olay günlüğünden çıkarır (`docs/03 §8`). O zamana kadar elle yap —
+ama **kapıyı prompt kuralına tercih et**: bir lint kuralı her seferinde aynı
+şekilde çalışır, prompt satırı bağlam büyüdükçe silikleşir.
+
 **Kural yazmayı promptu uzatmaya tercih et.** `GEMINI.md`'ye eklenen kural
 kalıcıdır ve her çalıştırmada bedavaya gelir; prompta eklenen cümle bir
 sonraki sefer unutulur.

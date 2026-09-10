@@ -121,6 +121,8 @@ birleştirir (`docs/03 §7`).
 - **Otonom yürütme döngüsü:** dispatch, verify, review, repair, devam
 - Döngü sonlandırma: tamamlandı / kilitlendi / insan bekliyor / bütçe doldu
 - İlerleme yok tespiti
+- **`p2p steer`** — escalate olmuş task'a insan yönlendirmesini `Decision`
+  olarak enjekte etme (`docs/03 §3.5`)
 
 **Çıkış:** Elle yazılmış 3 task'lık bir graph `--autonomy full` ile **baştan
 sona insan müdahalesi olmadan** koşuyor; en az bir task doğal olarak fix
@@ -162,6 +164,8 @@ randevu API'si + minimal web arayüzü.
 - Playwright `e2e` kapısı, kullanıcı akışı üretimi
 - Etki tabanlı regresyon seçimi
 - Tautoloji taraması (sahte test yakalama)
+- **`p2p retro`** — olay günlüğünden tekrarlayan hata kalıplarını çıkarma ve
+  kural/kapı önerisi üretme (`docs/03 §8`)
 
 **Çıkış:** Bir kabul kriterini bilerek bozmak E2E'yi kırmızı yapıyor ve doğru
 task'ı yeniden açıyor.

@@ -213,6 +213,22 @@ gereken hiçbir durum olmamalı.
 bağımsız dalları çalıştırmaya devam eder ve `p2p status` çıktısında
 "3 task insan kararı bekliyor" der.
 
+### Yönlendirme: `p2p steer`
+
+Escalate olmuş bir task'a insan müdahalesi, sohbet değil **kayıt** olmalıdır:
+
+```
+p2p steer AUTH-003 "Oturum yenilemesi refresh token ile değil,
+                    kısa ömürlü access token + yeniden giriş ile olacak."
+```
+
+Bu metin bir `Decision` kaydı olur (`decided_by=human`), task sözleşmesinin
+notlarına eklenir ve sonraki fix turunda bağlama girer. Prompt geçmişinde
+kaybolmaz; altı ay sonra "bu neden böyle" sorusunun cevabı olur.
+
+Ekran görüntüsü, log parçası veya beklenen çıktı örneği de aynı şekilde
+eklenebilir; hepsi task'ın artifact'ı olarak saklanır.
+
 Otomatik olarak bir sonraki insana teslim edilen paket:
 
 - Task sözleşmesi
@@ -408,3 +424,66 @@ p2p status
 
 Bu ekran ürünün kendisidir: ne yapıldığı, ne yapılamadığı ve **kimin adına
 hangi kararın verildiği** tek bakışta görünür.
+
+---
+
+## 8. Retrospektif — tekrarlayan hatayı kalıcı kurala çevirmek
+
+Sistemin zamanla iyileşmesinin tek meşru yolu budur. Bir agent'ın "daha iyi
+öğrenmesi" beklenemez; öğrenen şey **sistemin kendisidir**.
+
+### 8.1 Sinyal olay günlüğünden gelir, insan hafızasından değil
+
+`p2p retro` olay günlüğünü tarar ve tekrar eden kalıpları çıkarır:
+
+| Kalıp | Eşik | Ne anlama gelir |
+|---|---|---|
+| Aynı kapı + aynı hata imzası, farklı task'larda | 3 kez | Sistemik bir üretim hatası |
+| Aynı inceleme bulgusu kategorisi | 3 kez | Kural eksik veya belirsiz |
+| Aynı capability'de ardışık escalation | 2 kez | Yanlış yönlendirme veya yetersiz bağlantı |
+| Aynı temada ACR | 2 kez | Mimari belge eksik veya yanlış |
+
+Tespit **deterministiktir** — hata imzası karşılaştırması, model yargısı değil.
+Yalnızca *öneri metnini* yazmak için bir model çağrılır.
+
+### 8.2 En önemli kural: önce kapı, sonra prompt
+
+Bir hata üçüncü kez tekrarladığında iki seçenek vardır:
+
+| Seçenek | Etkisi |
+|---|---|
+| `GEMINI.md`'ye bir cümle eklemek | Modelden **hatırlamasını** ister. Olasılıksal |
+| Bir lint kuralı / kapı eklemek | Hatayı **mekanik olarak** yakalar. Kesin |
+
+> **Tercih daima kapıdır.** Prompt'a eklenen kural, bağlam büyüdükçe silikleşir;
+> bir lint kuralı her seferinde aynı şekilde çalışır. Bu, ADR-004'ün doğrudan
+> devamıdır: kaliteyi ikna değil, mekanizma sağlar.
+
+Prompt kuralı, yalnızca mekanik olarak yakalanamayan şeyler için kullanılır
+(tasarım tercihi, kapsam disiplini, raporlama biçimi).
+
+### 8.3 Çıktı
+
+`p2p retro` bir **öneri** üretir, kendiliğinden değişiklik yapmaz:
+
+```
+RETRO  son 40 çalıştırma
+
+  ×5  unit / AssertionError: hataya dönen yol test edilmemiş
+      → ÖNERİ (kapı): coverage kapısına branch eşiği ekle
+  ×4  review / HIGH: sahiplik kontrolü eksik (IDOR)
+      → ÖNERİ (kapı): security kapısına çapraz-kiracı testi zorunluluğu
+      → ÖNERİ (kural): TEST- task şablonuna çapraz-kiracı AC'si ekle
+  ×3  ACR: veri modeli ilişki ifade edemiyor
+      → ÖNERİ (belge): docs mimari şablonuna ilişki kardinalitesi bölümü
+```
+
+Kabul edilen öneriler kural dosyalarına veya kapı tanımlarına işlenir ve
+`RETRO_APPLIED` olayı yazılır. Böylece "bu kural neden var" sorusunun cevabı
+her zaman kayıtlıdır.
+
+### 8.4 Neden otomatik uygulanmaz
+
+Kural değişikliği, gelecekteki her çalıştırmayı etkiler. Yanlış bir kural,
+tek bir hatalı task'tan çok daha pahalıdır — ve otonom bir sistemde etkisi
+sessizce yayılır. Öneri üretimi otomatiktir; kabul, `medium` risk bir karardır.

@@ -63,6 +63,38 @@ Bu tez üç somut mimari sonuç doğurur ve dokümanların geri kalanı bunları
 3. **Mimari, uygulamadan izole korunur.** Uygulayıcı agent mimari kararı
    değiştiremez; ancak itiraz edebilir. (`docs/03`, ACR mekanizması)
 
+### 3.1 "Vibe coding"den ayrıldığımız üç nokta
+
+P2P, AI destekli geliştirmenin yaygın pratiğiyle çoğu yerde aynı hedefe bakar
+ama üç noktada bilinçli olarak ters yönde durur. Bunlar tercih değil, ürünün
+tanımıdır.
+
+**1. Kalite kararı "hissiyat" değildir.**
+Yaygın pratikte geliştirici kodu satır satır okumaz; ekrana bakar, çalışıyorsa
+devam eder. Bu, tek kişilik ve kısa ömürlü işlerde yeterlidir. P2P'de kalite
+kararını insanın izlenimi değil, kapı çıkış kodu verir (ADR-004). İnsanın
+kodu okumaması bizde de doğrudur — ama **yerine bir his değil, bir mekanizma**
+konduğu için.
+
+**2. Belge koddan üretilmez; kod belgeden üretilir.**
+"Güncel kod ve sistem promptu asıl dokümantasyondur, gerekirse mimariyi
+koddan çıkartırız" yaklaşımı bu mimariyle **bağdaşmaz**. Belgeler bizde
+dokümantasyon değil, **sözleşmedir**: uygulayıcının sınırı, gözden geçirenin
+ölçütü, ACR'ın referansı odur (ADR-007). Mimari koddan türetilirse,
+uygulayıcının ürettiği şey spesifikasyonun kendisi hâline gelir — yani
+mimari, onu kısıtlaması gereken şeyin çıktısına dönüşür. ACR mekanizmasının
+var olma sebebi tam olarak bunu engellemektir.
+
+**3. Boyut tahmini süre için değil, bağlam için yapılır.**
+"Story point tartışması bitti" doğrudur; biz de süre tahmini yapmıyoruz.
+Ama `estimated_size` duruyor ve duracak — çünkü ölçtüğü şey zaman değil,
+**bir task'ın tek bir bağlam penceresine sığıp sığmadığı**. `L` bir task
+"uzun sürecek" demek değil, "bölünmeli" demektir.
+
+Ayrıca kopyalamadığımız bir şey: PR'ı üçüncü taraf bir bota inceletmek.
+İnceleme, uygulayıcıdan **bağımsız ama sistemin içinde** olmalı; dışarıya
+verilirse ne mimariyi bilir, ne kabul kriterlerini, ne de ACR açabilir.
+
 ## 4. İki ayrı ürün — karıştırılmamalı
 
 Bu, projenin en kritik ve en kolay kaçırılan ayrımıdır.
@@ -128,6 +160,10 @@ gerekçeli bir ADR olmadan girilmeyecek:
 - Web UI (v1 CLI'dır; UI Faz 10+)
 - Mobil uygulama üretimi (Faz 8'de değerlendirilecek, v1'de web+backend)
 - Otomatik production deployment (v1 artifact üretir, deploy etmez)
+- **Canlı hata döngüsü** (Sentry/Datadog → webhook → otomatik düzeltme → PR).
+  Mimariye uygun ve doğal bir uzantı: dış hata bir `Task` üreticisidir, gerisi
+  mevcut döngüdür. Ama v1 deploy etmediği için izlenecek bir canlı sistem yok.
+  Faz 10+
 
 ## 7. Hedef kullanıcı
 

@@ -61,6 +61,9 @@ Açık kaynak yayınında `docs/**` İngilizceye çevrilecek (bkz. Faz 9).
 
 Faz: **mimari ve spesifikasyon tamamlandı, uygulama başlamadı.**
 
+İki tur gözden geçirmeden geçti: red team (16 bulgu, 13'ü işlendi) ve kapsam
+genişlemesi (otonomi + model bağımsızlığı). 10 ADR, 12 belge, 9 master prompt.
+
 Sıradaki iki adım:
 
 1. **Faz 0 Test 3'ü koş** (`docs/08`): Claude task üretir → Gemini uygular →
