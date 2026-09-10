@@ -21,7 +21,7 @@ içinde izole bir değişiklik.
 **Neden şimdi karar vermelisin:** Faz 1'in ilk satırı bu dile yazılıyor.
 Sonradan değiştirmek her şeyi yeniden yazmak demek.
 
-- [ ] Karar: ______  Gerekçe: ______
+- [x] Karar: Python 3.11+ (Pydantic v2 + Typer + Pytest). Gerekçe: CLI orkestrasyonu, veri modelleri doğrulama katılığı, subprocess yönetimi ve test altyapısı için en verimli ve olgun ortam. Üretilecek nihai ürünlerin dili ise kullanıcı ve Blueprint seçimine bırakılmıştır. (2026-09-11)
 
 ---
 
