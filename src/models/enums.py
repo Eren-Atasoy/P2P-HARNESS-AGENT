@@ -56,11 +56,14 @@ class TaskOutcome(str, Enum):
 
 class TaskStatus(str, Enum):
     PENDING = "PENDING"
+    READY = "READY"
     RUNNING = "RUNNING"
     GATED = "GATED"
     FIXING = "FIXING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    BLOCKED = "BLOCKED"
+    FAILED = "FAILED"
     ESCALATED = "ESCALATED"
     MERGED = "MERGED"
     PAUSED = "PAUSED"
