@@ -531,5 +531,43 @@ def audit(
         console.print("[bold green]Audit PASSED: No critical security or vendor leakage issues found.[/bold green]")
 
 
+@app.command()
+def ui(
+    port: int = typer.Option(8080, "--port", "-p", help="Port to serve the dashboard on"),
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind to"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not automatically open browser"),
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Target workspace root directory"),
+):
+    """Launches the P2P Web Control Panel Dashboard (docs/12 §2.A, docs/08 Faz 10)."""
+    import webbrowser
+    from src.ui.server import P2PUIServer
+
+    ws = Workspace(workspace)
+    ws.ensure_directories()
+
+    server = P2PUIServer(workspace=ws, host=host, port=port)
+    url = f"http://{host}:{port}"
+    console.print(Panel(
+        f"[bold cyan]P2P Web Control Panel[/bold cyan]\n"
+        f"URL: [bold green]{url}[/bold green]\n"
+        f"Workspace: [white]{ws.root_path}[/white]\n"
+        f"Design System: [dim]docs/12 §1 - §2 (Geist, Semantic Tokens, 7 Views)[/dim]",
+        border_style="cyan",
+    ))
+
+    if not no_browser:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+    console.print("[dim]Press Ctrl+C to stop the dashboard server...[/dim]")
+    try:
+        server.start(blocking=True)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Shutting down P2P UI server...[/yellow]")
+        server.stop()
+
+
 if __name__ == "__main__":
     app()
