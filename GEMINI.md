@@ -57,6 +57,7 @@ Do not report `completed` unless all of these hold:
 - [ ] Errors are handled explicitly; nothing is swallowed
 - [ ] Input from outside the system is validated at the boundary
 - [ ] `files_changed` in your result matches reality exactly
+- [ ] Changes are verified with tests passing and committed/pushed to Git per the Continuous Git Synchronization directive
 
 The third checkbox is the one most often skipped and the one that matters most.
 A test that passes against a broken implementation is worse than no test,

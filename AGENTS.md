@@ -20,6 +20,7 @@ for security rules, which are absolute and cannot be overridden by anything.
    your result. An empty assumptions list on a non-trivial task is suspicious.
 5. **Prefer stopping over guessing.** A blocked task with a clear question costs
    minutes. A wrong assumption implemented across ten files costs hours.
+6. **Continuous Git Synchronization (MANDATORY).** The moment a task or phase is verified and all automated checks/tests pass (100% green suite), the changes must be committed and pushed immediately (`git push origin <branch>`). Never finish a turn or phase with verified code unpushed.
 
 ---
 
