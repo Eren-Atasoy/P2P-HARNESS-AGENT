@@ -77,6 +77,14 @@ class Workspace:
     def cache_dir(self) -> Path:
         return self.p2p_dir / "cache"
 
+    @property
+    def issues_dir(self) -> Path:
+        return self.p2p_dir / "issues"
+
+    @property
+    def prs_dir(self) -> Path:
+        return self.p2p_dir / "prs"
+
     # Standard generated project directories per docs/01 §6
     @property
     def backend_dir(self) -> Path:
@@ -149,6 +157,8 @@ class Workspace:
             self.worktrees_dir,
             self.failed_worktrees_dir,
             self.cache_dir,
+            self.issues_dir,
+            self.prs_dir,
             self.backend_dir,
             self.frontend_dir,
             self.tests_dir,

@@ -265,5 +265,96 @@ def status(
         console.print(dec_table)
 
 
+@app.command()
+def issues(
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status: OPEN | CLOSED"),
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Workspace root containing .p2p directory"),
+):
+    """Lists tracked collaboration issues (docs/07 §7)."""
+    from src.collaboration.issues import LocalIssueStore
+    from src.collaboration.models import IssueStatus
+
+    ws = Workspace(workspace)
+    store = LocalIssueStore(ws)
+
+    st_filter = None
+    if status:
+        try:
+            st_filter = IssueStatus(status.upper())
+        except ValueError:
+            console.print(f"[red]Invalid status:[/red] '{status}'. Use OPEN or CLOSED.")
+            raise typer.Exit(code=1)
+
+    issue_list = store.list_issues(status=st_filter)
+    if not issue_list:
+        console.print("[dim]No issues found matching filter.[/dim]")
+        return
+
+    table = Table(title="Collaboration Issues & Backlog", border_style="dim")
+    table.add_column("Issue ID", style="bold white")
+    table.add_column("Title")
+    table.add_column("Severity")
+    table.add_column("Status")
+    table.add_column("Task ID")
+    table.add_column("Labels")
+
+    for iss in issue_list:
+        sev_color = {"CRITICAL": "bold red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue"}.get(iss.severity.value, "white")
+        st_color = "green" if iss.status == IssueStatus.OPEN else "dim white"
+        table.add_row(
+            iss.id,
+            iss.title,
+            f"[{sev_color}]{iss.severity.value}[/{sev_color}]",
+            f"[{st_color}]{iss.status.value}[/{st_color}]",
+            iss.task_id or "-",
+            ", ".join(iss.labels),
+        )
+    console.print(table)
+
+
+@app.command()
+def pr(
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status: OPEN | MERGED | CLOSED"),
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Workspace root containing .p2p directory"),
+):
+    """Lists tracked Pull Requests (Task PRs & Release PRs) (docs/07 §7)."""
+    from src.collaboration.models import PRStatus
+    from src.collaboration.pull_requests import LocalPRStore
+
+    ws = Workspace(workspace)
+    store = LocalPRStore(ws)
+
+    st_filter = None
+    if status:
+        try:
+            st_filter = PRStatus(status.upper())
+        except ValueError:
+            console.print(f"[red]Invalid status:[/red] '{status}'. Use OPEN, MERGED, or CLOSED.")
+            raise typer.Exit(code=1)
+
+    pr_list = store.list_prs(status=st_filter)
+    if not pr_list:
+        console.print("[dim]No pull requests found matching filter.[/dim]")
+        return
+
+    table = Table(title="Pull Requests (Task & Release)", border_style="dim")
+    table.add_column("PR #", style="bold white")
+    table.add_column("Title")
+    table.add_column("Type")
+    table.add_column("Status")
+    table.add_column("Branch Flow")
+
+    for p in pr_list:
+        st_color = "green" if p.status == PRStatus.MERGED else ("cyan" if p.status == PRStatus.OPEN else "dim white")
+        table.add_row(
+            f"#{p.number}",
+            p.title,
+            p.pr_type.value,
+            f"[{st_color}]{p.status.value}[/{st_color}]",
+            f"{p.head_branch} -> {p.base_branch}",
+        )
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()
