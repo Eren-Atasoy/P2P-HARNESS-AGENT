@@ -50,23 +50,26 @@ function initTheme() {
 }
 
 // --- Data Fetching ---
+let isFetching = false;
 async function fetchData() {
+  if (isFetching) return;
+  isFetching = true;
   try {
     const [stateRes, tasksRes, eventsRes, approvalsRes, connsRes, retroRes] = await Promise.all([
-      fetch('/api/state').then(r => r.json()),
-      fetch('/api/tasks').then(r => r.json()),
-      fetch('/api/events').then(r => r.json()),
-      fetch('/api/approvals').then(r => r.json()),
-      fetch('/api/connections').then(r => r.json()),
-      fetch('/api/retro').then(r => r.json()),
+      fetch('/api/state').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch('/api/tasks').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch('/api/events').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch('/api/approvals').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch('/api/connections').then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch('/api/retro').then(r => r.ok ? r.json() : {}).catch(() => ({})),
     ]);
 
-    state.data.state = stateRes.state;
-    state.data.tasks = tasksRes.tasks || [];
-    state.data.events = eventsRes.events || [];
-    state.data.approvals = approvalsRes.approvals || [];
-    state.data.connections = connsRes.connections || [];
-    state.data.retro = retroRes.recommendations || [];
+    if (stateRes && stateRes.state) state.data.state = stateRes.state;
+    if (tasksRes && tasksRes.tasks) state.data.tasks = tasksRes.tasks;
+    if (eventsRes && eventsRes.events) state.data.events = eventsRes.events;
+    if (approvalsRes && approvalsRes.approvals) state.data.approvals = approvalsRes.approvals;
+    if (connsRes && connsRes.connections) state.data.connections = connsRes.connections;
+    if (retroRes && retroRes.recommendations) state.data.retro = retroRes.recommendations;
 
     // Keep selectedTask updated if exists
     if (state.selectedTask) {
@@ -76,7 +79,9 @@ async function fetchData() {
 
     render();
   } catch (err) {
-    console.error('Failed to fetch dashboard data:', err);
+    // Gracefully ignore network cancel/abort
+  } finally {
+    isFetching = false;
   }
 }
 
@@ -768,5 +773,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   setupNavigation();
   fetchData();
-  setInterval(fetchData, 3000); // 3s polling for reactive dashboard
+  setInterval(() => {
+    if (!document.hidden) {
+      fetchData();
+    }
+  }, 3500); // 3.5s visibility-aware polling
 });

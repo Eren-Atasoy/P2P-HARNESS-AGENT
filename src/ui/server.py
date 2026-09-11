@@ -34,15 +34,18 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
 
     def _send_json(self, data: Any, status: int = 200) -> None:
         """Helper to send JSON response with CORS headers."""
-        body = json.dumps(data, default=str).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            body = json.dumps(data, default=str).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+            self.wfile.write(body)
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
 
     def do_OPTIONS(self) -> None:
         """Handle pre-flight CORS requests."""
@@ -504,8 +507,26 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
         except Exception as e:
-            self.send_error(500, f"Error reading asset: {e}")
+            try:
+                self.send_error(500, f"Error reading asset: {e}")
+            except Exception:
+                pass
+
+
+class RobustThreadingHTTPServer(http.server.ThreadingHTTPServer):
+    """Threading HTTPServer that gracefully suppresses client abort exceptions on Windows/POSIX."""
+    daemon_threads = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        import sys
+        exc_type, _, _ = sys.exc_info()
+        if exc_type in (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            # Client closed connection abruptly (e.g. browser refresh/tab close/polling abort)
+            return
+        super().handle_error(request, client_address)
 
 
 class P2PUIServer:
@@ -515,7 +536,7 @@ class P2PUIServer:
         self.workspace = workspace
         self.host = host
         self.port = port
-        self.server: Optional[http.server.HTTPServer] = None
+        self.server: Optional[RobustThreadingHTTPServer] = None
         self.thread: Optional[threading.Thread] = None
 
     def start(self, blocking: bool = False) -> str:
@@ -525,7 +546,7 @@ class P2PUIServer:
         events_path = self.workspace.events_path
         handler_cls.store = EventStore(events_path) if events_path.exists() else None
 
-        self.server = http.server.HTTPServer((self.host, self.port), handler_cls)
+        self.server = RobustThreadingHTTPServer((self.host, self.port), handler_cls)
         url = f"http://{self.host}:{self.port}"
 
         if blocking:
