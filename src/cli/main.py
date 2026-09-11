@@ -33,7 +33,7 @@ def version():
 def new(
     prompt: str = typer.Argument(..., help="Natural language product description or requirements"),
     workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Target workspace root directory"),
-    blueprint: str = typer.Option("fastapi", "--blueprint", "-b", help="Project blueprint: fastapi | python_cli"),
+    blueprint: str = typer.Option("fastapi", "--blueprint", "-b", help="Project blueprint: fastapi | nextjs | node_express | python_cli"),
     autonomy: str = typer.Option("guarded", "--autonomy", "-a", help="Autonomy level: supervised | guarded | full"),
     approve: bool = typer.Option(False, "--approve", help="Explicitly approve project gates G1, G2, G3"),
 ):
@@ -564,6 +564,11 @@ def ui(
     console.print("[dim]Press Ctrl+C to stop the dashboard server...[/dim]")
     try:
         server.start(blocking=True)
+    except OSError as err:
+        if "10048" in str(err) or "Address already in use" in str(err):
+            console.print(f"\n[bold red]Hata:[/bold red] Port {port} zaten kullanımda! Başka bir port ile başlatın: [bold cyan]p2p ui --port {port + 1}[/bold cyan]")
+            raise typer.Exit(code=1)
+        raise
     except KeyboardInterrupt:
         console.print("\n[yellow]Shutting down P2P UI server...[/yellow]")
         server.stop()

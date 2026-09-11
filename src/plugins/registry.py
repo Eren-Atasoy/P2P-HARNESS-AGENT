@@ -80,6 +80,8 @@ def _init_builtin_plugins() -> None:
     from src.runtime.api import ApiRuntime
     from src.runtime.ollama import OllamaRuntime
     from src.blueprints.fastapi import FastApiBlueprint
+    from src.blueprints.nextjs import NextJsBlueprint
+    from src.blueprints.node_express import NodeExpressBlueprint
     from src.blueprints.python_cli import PythonCliBlueprint
 
     plugin_registry.register_runtime("mock", lambda **kwargs: MockRuntime(**kwargs))
@@ -88,6 +90,8 @@ def _init_builtin_plugins() -> None:
     plugin_registry.register_runtime("api", lambda **kwargs: ApiRuntime(**kwargs))
     plugin_registry.register_runtime("ollama", lambda **kwargs: OllamaRuntime(**kwargs))
     plugin_registry.register_blueprint("fastapi", FastApiBlueprint)
+    plugin_registry.register_blueprint("nextjs", NextJsBlueprint)
+    plugin_registry.register_blueprint("node_express", NodeExpressBlueprint)
     plugin_registry.register_blueprint("python_cli", PythonCliBlueprint)
 
 

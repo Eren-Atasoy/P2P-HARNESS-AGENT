@@ -152,8 +152,10 @@ function renderOverview() {
               BLUEPRINT:
             </label>
             <select id="run-blueprint" class="input-control">
-              <option value="fastapi">FastAPI (Async REST, Pydantic, pytest)</option>
-              <option value="python_cli">Python CLI (Click/Argparse, Subcommands)</option>
+              <option value="fastapi">FastAPI (Python Async REST API, Pydantic, pytest)</option>
+              <option value="nextjs">Next.js & React (Fullstack Web App, App Router)</option>
+              <option value="node_express">Node.js & Express (JavaScript REST API)</option>
+              <option value="python_cli">Python CLI (Typer & Rich, Subcommands)</option>
             </select>
           </div>
 
