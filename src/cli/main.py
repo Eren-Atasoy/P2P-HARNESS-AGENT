@@ -10,10 +10,14 @@ from src import __version__
 from src.events.projector import project_state
 from src.events.store import EventStore
 from src.models.decision import Decision
-from src.models.enums import DecidedBy, DecisionKind, EventType
+from src.models.enums import AutonomyLevel, DecidedBy, DecisionKind, EventType
+from src.planning.architect import ArchitecturePlanner
+from src.planning.decomposer import TaskDecomposer
+from src.planning.discovery import DiscoveryEngine
 from src.runtime.claude import ClaudeCodeRuntime
 from src.runtime.gemini import GeminiCliRuntime
 from src.runtime.mock import MockRuntime
+from src.workspace.workspace import Workspace
 
 app = typer.Typer(help="Prompt2Product — Autonomous, model-agnostic, local-first software engineering platform")
 console = Console()
@@ -23,6 +27,68 @@ console = Console()
 def version():
     """Prints Prompt2Product version."""
     console.print(f"[bold cyan]Prompt2Product[/bold cyan] version [green]{__version__}[/green]")
+
+
+@app.command()
+def new(
+    prompt: str = typer.Argument(..., help="Natural language product description or requirements"),
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Target workspace root directory"),
+    autonomy: str = typer.Option("guarded", "--autonomy", "-a", help="Autonomy level: supervised | guarded | full"),
+    approve: bool = typer.Option(False, "--approve", help="Explicitly approve project gates G1, G2, G3"),
+):
+    """Initializes a new project from a prompt through the planning chain (G1 -> G2 -> G3)."""
+    console.print(Panel(f"[bold cyan]Prompt2Product Planning Chain[/bold cyan]\nPrompt: [white]{prompt}[/white]", border_style="cyan"))
+
+    ws = Workspace(workspace)
+    ws.ensure_directories()
+    store = EventStore(ws.events_path)
+
+    try:
+        autonomy_level = AutonomyLevel(autonomy.lower())
+    except ValueError:
+        console.print(f"[bold red]Invalid autonomy level:[/bold red] '{autonomy}'. Use supervised, guarded, or full.")
+        raise typer.Exit(code=1)
+
+    # Step 1: Discovery (G1)
+    console.print("[dim]1/3 Running DiscoveryEngine and ambiguity extraction (Gate G1)...[/dim]")
+    discovery = DiscoveryEngine(ws, store)
+    spec, decisions, g1_passed = discovery.discover(prompt, autonomy_level=autonomy_level)
+    g1_status = "[green]PASSED[/green]" if g1_passed else "[yellow]AWAITING APPROVAL[/yellow]"
+    console.print(f"    Project Name: [bold white]{spec.name}[/bold white] | G1: {g1_status}")
+
+    # Step 2: Architecture Planning (G2)
+    console.print("[dim]2/3 Running ArchitecturePlanner and ADR generation (Gate G2)...[/dim]")
+    architect = ArchitecturePlanner(ws, store)
+    _, adrs, g2_passed, _ = architect.plan_architecture(spec, autonomy_level=autonomy_level, approved_by_user=approve)
+    g2_status = "[green]PASSED[/green]" if g2_passed else "[yellow]AWAITING APPROVAL[/yellow]"
+    console.print(f"    Architecture: [bold white].p2p/docs/architecture.md[/bold white] | ADRs: {len(adrs)} | G2: {g2_status}")
+
+    # Step 3: Task Decomposition (G3)
+    console.print("[dim]3/3 Running TaskDecomposer and DAG validation (Gate G3)...[/dim]")
+    decomposer = TaskDecomposer(ws, store)
+    graph, g3_passed, _ = decomposer.decompose(spec, autonomy_level=autonomy_level, approved_by_user=approve)
+    g3_status = "[green]PASSED[/green]" if g3_passed else "[yellow]AWAITING APPROVAL[/yellow]"
+    console.print(f"    Tasks Created: [bold white]{len(graph.tasks)}[/bold white] | G3: {g3_status}")
+
+    # Tasks summary table
+    table = Table(title=f"Planned Tasks for {spec.name}", border_style="dim")
+    table.add_column("Task ID", style="bold white")
+    table.add_column("Title")
+    table.add_column("Risk")
+    table.add_column("Depends On")
+    table.add_column("Allowed Paths")
+
+    for tid, t in graph.tasks.items():
+        risk_color = {"high": "red", "medium": "yellow", "low": "blue"}.get(t.risk.value, "white")
+        table.add_row(
+            t.id,
+            t.title,
+            f"[{risk_color}]{t.risk.value}[/{risk_color}]",
+            ", ".join(t.depends_on) or "-",
+            ", ".join(t.allowed_paths[:2]),
+        )
+    console.print(table)
+    console.print("[bold green]Planning chain completed successfully![/bold green] Ready to run: [cyan]p2p run[/cyan]")
 
 
 @app.command()
