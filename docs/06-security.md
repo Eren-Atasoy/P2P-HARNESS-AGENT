@@ -95,7 +95,8 @@ dosya sistemi izinleri edilemez.
 
 1. Agent CLI'sına `yolo` verilmez (`auto_edit` + dar `--policy` en fazlası).
    Kabuk yüzeyi tek bir ikiliye ve sabit argüman kalıbına indirgenir; keyfi
-   komut yürütme kapalı kalır (ADR-008)
+   komut yürütme kapalı kalır (ADR-008).
+   **Argüman Doğrulama Dörtlüsü:** Politika yalnızca çalıştırılabilir dosya adını (`pytest`, `vitest`) değil; **`executable + argv + cwd + allowed_paths`** dörtlüsünü birlikte denetler. Örneğin `pytest -q tests/` izinliyken, `pytest -q ../../dış_dizin` veya keyfi bayrak enjeksiyonu (`--import-mode`, `-o`) engellenir.
 2. Agent'ın çalışma dizini kendi worktree'sidir; üst dizine erişimi verilmez
 3. Her çalıştırma sonrası `git status` doğrulaması (`docs/02 §3`)
 4. `policy` kapısı, birleştirmeden önce son kontrol

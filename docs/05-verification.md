@@ -160,18 +160,22 @@ kapıyı atlamak ürün kaybıdır.
 
 ## 9. "DONE" tanımı
 
-Bir task ancak şunların **hepsi** doğruyken `DONE` olur:
+Her task aynı monolitik kapıları koşmaz (ör. bir doküman veya konfigürasyon task'ı gereksiz yere `smoke` veya `integration` sürecine sokulmaz). Bir task'ın `DONE` olması, **o task'a özgü kapılar ile global sistem değişmezlerinin** birlikte sağlanmasıdır:
 
-- [ ] Tüm `gates` `PASS` veya `WARN`
-- [ ] Her `acceptance_criteria` için `verified_by` gerçekten koşulmuş
-- [ ] `ReviewResult.verdict = APPROVED`, CRITICAL/HIGH bulgu yok
-- [ ] `git` doğrulaması temiz: `allowed_paths` dışında değişiklik yok
-- [ ] Integration dalına çakışmasız birleşmiş
-- [ ] Regresyon kapıları yeşil
-- [ ] `human_approval=true` ise insan onaylamış
-- [ ] UI dokunan task ise: iki tema doğru · boş/yükleniyor/hata durumları var
-      ve test edilmiş · `base` ve `lg`'de yatay taşma yok · klavyeyle tam
-      kullanılabilir (`docs/12 §4`)
+```
+DONE = Task-Specific Gates + Global Policy Gates + Required AC + Review Policy
+```
 
-Bu liste `p2p status <task>` çıktısında birebir gösterilir. Kullanıcı hangi
-maddede takıldığını tahmin etmek zorunda kalmamalı.
+Somut kontrol listesi:
+
+- [ ] **Task Kapıları:** TaskContract'ta tanımlı `gates` listesindeki kapıların tamamı `PASS` veya `WARN`
+- [ ] **Global Politika Kapıları:** `policy` (sır taraması ve kapsam) `PASS`
+- [ ] **Kabul Kriterleri:** Her `acceptance_criteria` için `verified_by` (`test` veya `gate`) başarıyla doğrulanmış
+- [ ] **İnceleme:** `ReviewResult.verdict = APPROVED`, açık CRITICAL veya HIGH bulgu yok
+- [ ] **Git Doğrulaması:** `allowed_paths` ve `forbidden_paths` sınırlarında kalındı, `files_changed` beyanı doğrulandı
+- [ ] **Entegrasyon:** `p2p/integration` dalına çakışmasız birleşti
+- [ ] **Etki Alanı Regresyonu:** Task'ın dokunduğu üst dizinlerin regresyon kapıları yeşil (ör. backend değiştiyse ilgili kapılar; sadece `docs/**` değiştiyse regresyon kapısı koşulmaz)
+- [ ] **İnsan Onayı:** `human_approval=true` veya `risk=high` ise insan onayı verildi
+- [ ] **UI Standartları:** UI dokunan task ise: tema uyumu, boş/hata durumları, yatay taşma kontrolü ve klavye erişilebilirliği (`docs/12 §4`)
+
+Bu liste `p2p status <task>` çıktısında açıkça gösterilir. Kullanıcı hangi maddede takıldığını tahmin etmek zorunda kalmaz.

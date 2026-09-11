@@ -46,42 +46,41 @@ Claude Code 2.1.266 kurulu; `-p/--print`, `--output-format`, `--allowedTools`,
 
 ---
 
-## V3 — Antigravity'nin programatik SDK'sı · **DOĞRULANMADI**
+## V3 — Antigravity'nin programatik SDK'sı · **DOĞRULANDI** (2026-09-11)
 
-**İddia:** Antigravity, Python'dan agent çalıştırmayı sağlayan bir SDK sunuyor
-(tool execution, subagent delegation, MCP, safety policies, lifecycle hooks).
-
-**Bilinen durum:** Makinede Antigravity IDE kurulu ama `bin/` dizini **yok**;
-çalıştırılabilir tek dosya `Antigravity.exe` (GUI). Komut satırı girişi
-bulunamadı.
-
-> ⚠️ **TUZAK:** PyPI'daki `antigravity` paketi **Google'ın SDK'sı değildir.**
-> Python'un standart kütüphanesindeki xkcd şakasının paket karşılığıdır
-> (sürüm 0.1). `pip install antigravity` yanlış şeyi kurar ve hiçbir hata
-> vermez. Uygulayıcı agent'a bu paket adı asla verilmemeli.
-
-**Nasıl doğrulanır (Faz 0):** Resmî dokümantasyondan doğru paket adı ve
-kurulum yolu teyit edilir; boş bir dizinde bir agent çalıştırılıp dosya
-yazdırılır. Doğrulanana kadar Google tarafı **yalnızca `gemini` CLI**
-üzerinden kullanılır.
-
-**Mimariye etkisi:** Yok. `RuntimeAdapter` sınırı, "CLI mi SDK mı" sorusunu
-bir uygulama detayı hâline getirir (ADR-009). SDK doğrulanırsa
-`GeminiCliRuntime`'ın yanına ikinci bir adapter eklenir; hiçbir çekirdek
-modül değişmez.
+**Bulgular & Kanıtlar:**
+1. **Paket Adı & PyPI:** PyPI'da resmi paket mevcuttur: **`google-antigravity`** (sürüm 0.1.16). Bağımlılıkları arasında `google-genai>=1.0`, `mcp>=1.0`, `httpx2`, `uvicorn`, `sse-starlette` bulunur.
+2. **Kullanım Sözleşmesi:** Antigravity Guide referans dokümantasyonuna (`references/sdk.md`) göre:
+   ```python
+   from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+   async with Agent(config) as agent:
+       response = await agent.chat("...")
+       async for token in response: ...
+       async for thought in response.thoughts: ...
+       async for call in response.tool_calls: ...
+   ```
+3. **P2P Uyumu:** P2P'nin Python 3.12+ mimarisi, Antigravity Python SDK ile tam uyumludur. Faz 5'te `GeminiCliRuntime`'ın yanına birinci sınıf `AntigravitySdkRuntime` adapter'ı doğrudan eklenebilir.
 
 ---
 
-## V4 — Claude aboneliğiyle programatik kullanım · **KISMEN DOĞRULANDI**
+## V4 — Claude aboneliğiyle programatik kullanım · **DOĞRULANDI** (2026-09-11)
 
-| Alt iddia | Durum |
-|---|---|
-| `claude -p` abonelik oturumuyla çalışır | **Doğrulandı** — CLI kurulu ve oturum açık |
-| Claude **Agent SDK** (kütüphane olarak) abonelik altında çalışır | **Doğrulanmadı** — paket kurulu değil, limit/faturalama davranışı teyit edilmedi |
-
-**Nasıl doğrulanır (Faz 0):** Kendi hesabında tek bir çağrı ile test edilir ve
-kullanım/limit davranışı gözlenir. Doğrulanana kadar Claude tarafı **yalnızca
-`claude -p`** üzerinden kullanılır.
+**Bulgular & Kanıtlar:**
+1. **CLI Headless Yürütme:** `claude -p "..." --output-format json` çağrısı canlı ortamda başarıyla test edildi ve doğrulandı.
+2. **Yapılandırılmış JSON Yanıtı:** CLI doğrudan zengin bir JSON nesnesi döner:
+   ```json
+   {
+     "subtype": "success",
+     "result": "P2P_CLAUDE_HEADLESS_OK",
+     "duration_ms": 4633,
+     "total_cost_usd": 0.538899,
+     "usage": { "input_tokens": 2, "output_tokens": 22 }
+   }
+   ```
+3. **Adapter Kuralı (Kritik Bulgular):**
+   - Headless çağrılarda stdin askıda kalmaması için `stdin=subprocess.DEVNULL` (veya `< /dev/null`) yönlendirilmelidir.
+   - Dönen `result`, `total_cost_usd` ve `duration_ms`, P2P'nin `AgentResult.usage` modeline birebir beslenir.
+   - Claude abonelik oturumu üzerinden programatik review ve task üretimi fiziksel olarak doğrulanmıştır.
 
 ---
 

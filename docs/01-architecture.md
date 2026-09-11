@@ -146,13 +146,16 @@ Bunları karıştırmak en yaygın mimari hatadır. Her verinin **tek** bir evi 
 `state.json` **türetilmiş** bir görünümdür — olay günlüğünden yeniden
 üretilebilir, doğruluk kaynağı değildir. Silinirse yeniden hesaplanır.
 
-### Neden SQLite değil
+### Neden SQLite değil (v1) ve EventStore Soyutlaması
 
-Paralel agent process'leri aynı SQLite dosyasına yazarsa kilit çekişmesi
+Paralel agent process'leri aynı SQLite dosyasına doğrudan yazarsa kilit çekişmesi
 yaşanır ve Windows'ta bu özellikle sorunludur. Tek yazarlı append-only JSONL,
-v1'in eşzamanlılık ihtiyacı için hem yeterli hem de radikal biçimde daha basit.
-Sorgu ihtiyacı büyürse JSONL'den SQLite'a projeksiyon yazmak geriye dönük
-uyumlu bir eklemedir. (ADR-002)
+v1'in yerel eşzamanlılık ihtiyacı için hem yeterli hem de radikal biçimde daha basittir.
+
+**Gelecek projeksiyonu (EventStore interface):**
+Event depolama katmanı bir `EventStore` arayüzü arkasında soyutlanır:
+- `JsonlEventStore` (v1 — yerel dosya tabanlı, append-only doğruluk kaynağı)
+- `SqliteEventStore` (gelecek projeksiyonu — `p2p status`, `p2p cost`, `p2p analytics` gibi zengin sorgular için JSONL'den SQLite'a türetilmiş görünüm) (ADR-002)
 
 ## 6. Üretilen çalışma alanı düzeni
 
@@ -181,21 +184,28 @@ uyumlu bir eklemedir. (ADR-002)
 çalışmaya devam etmelidir. P2P metadata'sı uygulama koduna sızamaz —
 ne import, ne yorum satırı, ne yapılandırma.
 
+### P2P Runtime Stack ≠ Generated Product Stack
+
+En temel mimari ayrım şudur:
+- **P2P Runtime Stack:** Python 3.12+, Typer, Pydantic v2, uv. P2P'nin kendi orchestrator / control-plane motorudur.
+- **Generated Product Stack:** Tamamen dinamiktir; kullanıcının promptuna ve seçilen Blueprint'e göre belirlenir (ör: Next.js + FastAPI, Go + React, Flutter + Node.js vb.). P2P'nin Python olması, üretilen ürünün Python olmasını zorunlu kılmaz.
+
 ## 7. Teknoloji seçimi (P2P'nin kendisi için)
 
 | Alan | Seçim | Neden | Alternatif ve neden değil |
 |---|---|---|---|
-| Dil | **Python 3.11+** | Alt process orkestrasyonu stdlib'de çözülmüş; modellerin en iyi yazdığı dil; katkı eşiği düşük | Node: `gemini-cli` Node ama onu subprocess çağırıyoruz, aynı runtime'da olmanın faydası yok. Go: dağıtımı kolay ama üretim kalitesi ve katkı eşiği daha kötü |
-| CLI | **Typer** | Tip ipuçlarından üretim, alt komut ağacı, iyi yardım çıktısı | argparse fazla ayrıntılı; Click zaten Typer'ın altında |
-| Eşzamanlılık | **`concurrent.futures.ThreadPoolExecutor`** | İş yükü %100 alt process bekleme, GIL sorun değil; asyncio'dan çok daha kolay hata ayıklanır | asyncio: subprocess beklemek için gereksiz karmaşıklık |
-| Kalıcılık | **JSONL + türetilmiş state** | Bkz. §5 | SQLite: kilit çekişmesi |
+| Dil | **Python 3.12+** | Alt process orkestrasyonu, Antigravity Python SDK & MCP entegrasyonu, model uyumu, zengin veri modelleme (Pydantic v2) | Node/TS: frontend ekosistemi zengin ama P2P control plane için subprocess/agent orkestrasyonunda Python daha avantajlı. Go: tek binary ama AI SDK ve hızlı iterasyonda zayıf |
+| Paket Yöneticisi | **uv** | Ultra hızlı paket çözümü, lock dosyası otoritesi, pipx benzeri tek komut çalıştırma | Standart pip: yavaş; poetry: ağır |
+| CLI | **Typer** | Tip ipuçlarından üretim, alt komut ağacı, zengin yardım çıktısı | argparse: ayrıntılı; Click: Typer'ın alt katmanı |
+| Eşzamanlılık | **`concurrent.futures.ThreadPoolExecutor` (v1) → `asyncio / TaskGroup` (geçiş yolu)** | v1 prototipinde alt process bekleme için yeterli; Faz 5 orchestrator'da agent lifecycle, streaming stdout, timeout ve cancel ağacı için `asyncio.create_subprocess_exec` + `TaskGroup`'a evrilir | — |
+| Kalıcılık | **`EventStore` (v1: `JsonlEventStore`, Gelecek: `SqliteEventStore`)** | Append-only, kilitsiz, insan okuyabilir; SQLite projection ile analitik | Doğrudan SQLite yazımı: paralel kilit çekişmesi |
 | Şema doğrulama | **Pydantic v2** | Agent çıktısı güvenilmezdir; sınırda kırılmalı | Elle dict kontrolü: sessiz hata kaynağı |
-| Şablonlama | **Jinja2** | Promptlar versiyonlanabilir dosya olmalı | f-string: promptlar koda gömülür, gözden geçirilemez |
+| Şablonlama | **Jinja2** | Promptlar versiyonlanabilir dosya olmalı | f-string: koda gömülür, gözden geçirilemez |
 | Test | **pytest** | — | — |
-| Loglama | **structlog** (veya stdlib JSON formatter) | Olay günlüğüyle aynı biçim | — |
+| Loglama | **structlog / JSON** | Olay günlüğüyle aynı biçim | — |
 | Dağıtım | **uv / pipx** | Tek komut kurulum | — |
 
-Prensip: **sıkıcı ve sağlam** teknoloji.
+Prensip: **sıkıcı, sağlam ve genişletilebilir** teknoloji.
 
 ## 8. Genişletilebilirlik: eklenti sınırları
 

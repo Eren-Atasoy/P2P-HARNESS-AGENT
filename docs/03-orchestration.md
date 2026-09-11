@@ -233,6 +233,17 @@ Otomatik olarak bir sonraki insana teslim edilen paket:
 
 - Task sözleşmesi
 - Tüm denemelerin özeti (ne denendi, ne oldu)
+- Hatanın sınıfı ve neden sınıflandığı
+- İki veya üç seçenekli net bir soru
+
+### 3.6 İnceleme Bulgularından Issue ve Onarım Görevine Dönüşüm (Review → Issue → Repair)
+
+Claude'un gerçekleştirdiği mimari ve kod incelemesinde tespit edilen bulgular doğrudan birer **İş Yönetimi (Work Item)** kaydına dönüştürülür:
+
+1. **Bulgu Değerlendirmesi:** `ReviewResult.findings` içindeki her `CRITICAL` veya `HIGH` bulgu için orchestrator bir `Issue` oluşturur (`GitHubIssueProvider` veya yerel `LocalIssueStore`).
+2. **Issue → TaskContract:** Issue, orchestrator'ın `IssueAdapter` bileşeni tarafından bir onarım sözleşmesine (`FIX-<id>`) dönüştürülür. İlgili `issue_id` sözleşmeye kaydedilir.
+3. **Uygulama ve PR:** Uygulayıcı agent (Gemini) yalnızca söz konusu bulguyu giderir. Orchestrator değişiklik için bir `Task PR` açar (`Fixes #<id>`).
+4. **Kapanış:** PR kapılardan ve Claude incelemesinden geçip `integration` dalına birleştiğinde Issue otomatik olarak kapatılır. Bu sayede insan işbirliği katmanı (GitHub) ile makine icra katmanı (`.p2p/events.jsonl`) tam senkronize kalır.
 - Son hata çıktısı
 - Mimar agent'ın "muhtemel kök neden" analizi (tek çağrı)
 - Önerilen 2-3 seçenek

@@ -112,14 +112,53 @@ automation_policy:
 Varsayılan `unknown`'dır. Sistemin kullanıcı adına iyimser varsayım yapması,
 onu bilmediği bir riske sokmaktır.
 
-## 4. RuntimeAdapter sözleşmesi
+## 4. RuntimeAdapter sözleşmesi ve RuntimeFeatures
 
+İki farklı runtime aynı temel fonksiyona sahip olsa bile yetenekleri (stream, cancel, pause, structured output, subagent, mcp) aynı olmayabilir. Bu nedenle runtime'ın teknik yetenekleri `RuntimeFeatures` ile tanımlanır.
+
+### RuntimeFeatures (Özellik Sözleşmesi)
+
+```yaml
+RuntimeFeatures:
+  can_stream: bool                # Canlı stdout/düşünce akışı verebiliyor mu
+  can_cancel: bool                # Süreci temiz iptal edebiliyor mu
+  can_pause: bool                 # Duraklatma desteği var mı
+  can_resume: bool                # Oturumu devam ettirebiliyor mu
+  supports_structured_output: bool# JSON/şema çıktısı garantisi
+  supports_subagents: bool        # Alt agent delege edebiliyor mu
+  supports_mcp: bool              # MCP araç protokolünü destekliyor mu
+  can_execute: bool               # Yerel kabuk/araç komutu çalıştırabiliyor mu
 ```
-run(task, agent, connection, workspace, run_id) -> AgentResult
-cancel(run_id) -> None
-status(run_id) -> RunStatus
-capabilities() -> set[Capability]
-health(connection) -> HealthStatus
+
+### RuntimeAdapter Arayüzü
+
+```python
+class RuntimeAdapter(ABC):
+    def run(task, agent, connection, workspace, run_id) -> AgentResult: ...
+    def stream(task, agent, connection, workspace, run_id) -> AsyncIterator[StreamChunk]: ...
+    def cancel(run_id) -> None: ...
+    def status(run_id) -> RunStatus: ...
+    def features() -> RuntimeFeatures: ...
+    def capabilities() -> set[Capability]: ...
+    def health(connection) -> HealthStatus: ...
+    def doctor(connection) -> RuntimeDoctorResult: ...
+```
+
+### RuntimeDoctor (`p2p doctor` Kanıtı)
+
+Bir bağlantının bu makinede gerçekten çalışıp çalışmadığı varsayıma bırakılamaz; `p2p doctor` ile somut olarak kanıtlanır:
+
+```json
+{
+  "connection_id": "gemini-cli-local",
+  "available": true,
+  "authenticated": true,
+  "can_read": true,
+  "can_write": true,
+  "can_execute": true,
+  "supports_structured_output": true,
+  "supports_cancellation": true
+}
 ```
 
 Adapter'ın sorumlulukları: çağrıyı kurmak, zaman aşımı uygulamak, ham çıktıyı
@@ -130,18 +169,18 @@ kapılar + result.json), ve onay istemi geldiğinde **anında `ERROR`** vermek
 Sorumlu **olmadıkları:** hangi task'ın çalışacağı, promptun içeriği, sonucun
 kabul edilip edilmeyeceği, hangi bağlantının seçileceği.
 
-> Bir runtime'ın CLI mi, SDK mı, HTTP mi olduğu **adapter'ın iç meselesidir**.
+> Bir runtime'ın CLI mi, SDK mı (ör. Antigravity Python SDK), HTTP mi olduğu **adapter'ın iç meselesidir**.
 > Bu sınır sayesinde `docs/11`'deki doğrulanmamış SDK iddiaları mimariyi
-> etkilemez: bir SDK doğrulanırsa yanına yeni bir adapter eklenir, çekirdek
-> değişmez.
+> etkilemez: Antigravity Python SDK doğrulandığında `GeminiCliRuntime`'ın yanına `AntigravitySdkRuntime` eklenir, çekirdek değişmez.
 
-### v1'de doğrulanmış adapterlar
+### v1'de hedeflenen adapterlar
 
-| Adapter | Çağrı | Durum |
+| Adapter | Çağrı / Entegrasyon | Durum |
 |---|---|---|
 | `ClaudeCodeRuntime` | `claude -p … --output-format json` | `docs/11 V2` ✔ |
 | `GeminiCliRuntime` | `gemini -p … --output-format json --approval-mode auto_edit --policy …` | `docs/11 V1` ✔ |
-| `MockRuntime` | kayıtlı yanıt oynatma | Faz 1'de yazılır |
+| `AntigravitySdkRuntime` | Antigravity Python SDK (`agent`, `tools`, `safety policies`) | `docs/11 V3` Spike |
+| `MockRuntime` | kayıtlı yanıt oynatma (modelsiz testler için) | Faz 1'de tamamlandı |
 
 `ApiRuntime`, `OllamaRuntime`, `GatewayRuntime` arayüzde tanımlıdır ama v1'de
 uygulanmaz. Arayüzün doğru olduğunun kanıtı, Faz 9'da üçüncü bir adapter'ın

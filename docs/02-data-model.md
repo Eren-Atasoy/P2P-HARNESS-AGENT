@@ -68,6 +68,7 @@ Sistemin kalbi. Bir agent'a verilen **tek** talimat kaynağı budur.
 | `result_path` | path | ✔ | Agent'ın sonucunu yazacağı dosya |
 | `acr_path` | path | ✔ | Agent'ın ACR yazacağı dosya |
 | `notes` | string | ✖ | Mimarın serbest notu |
+| `github` | object? | ✖ | GitHub entegrasyonu: `{ issue: int?, pr: int?, repo: string? }` |
 
 > **`result_path` ve `acr_path` yol politikasından muaftır.** `forbidden_paths`
 > bunları hiçbir zaman kapsamaz, `allowed_paths` içinde tekrarlanmaları
@@ -157,6 +158,9 @@ Agent'ın yapılandırılmış çıktısı. stdout log'dur, veri değildir.
 | `assumptions` | string[] | Yapılan varsayımlar — boş bırakmak yasak değil ama şüphelidir |
 | `acr` | string? | `outcome=blocked` ise ACR dosya yolu |
 | `failure_reason` | string? | `outcome=failed` ise |
+| `usage` | RunUsage? | Harcama/kullanım kaydı: `{ tokens, duration_ms, estimated_cost, model }` |
+
+`RunUsage` genişletilebilir bir yapıdır; v1'de temel süre ve token takibi sağlar, ileride kota ve faturalandırma için zemin hazırlar.
 
 ### Doğrulama kuralı
 
@@ -262,6 +266,7 @@ ACR_RESOLVED         POLICY_VIOLATION     MERGE_COMPLETED
 HUMAN_APPROVED       HUMAN_REJECTED       ESCALATED
 TASK_PAUSED          TASK_UNROUTABLE      HUMAN_STEERED
 RETRO_APPLIED        CONNECTION_HEALTH    BUDGET_EXCEEDED
+ISSUE_CREATED        PR_CREATED           PR_MERGED
 ```
 
 `state.json` bu günlüğün baştan oynatılmasıyla üretilir. Bu tasarımın

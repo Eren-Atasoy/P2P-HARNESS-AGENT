@@ -114,3 +114,11 @@ Report honestly:
 
 An agent that reports accurate failure is more valuable than one that reports
 optimistic success. Failure is recoverable; false success is not.
+
+---
+
+## 8. Continuous Git Synchronization
+
+Every task or phase implementation must be committed and pushed upon verification:
+- Once all acceptance criteria and automated tests pass (100% green suite), the changes must be committed with a descriptive commit message matching project conventions.
+- Immediately after commit, push to remote (`git push origin <branch>`). Never leave verified work unpushed at the end of a turn or phase.

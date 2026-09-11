@@ -115,17 +115,114 @@ jobs:
 2. **Kapılar makinede de tek komutla çalışabilmeli.** "Sadece CI'da çalışan"
    bir kapı, hata ayıklanamaz bir kapıdır.
 
-## 7. PR akışı
+## 7. GitHub Issues ve PR Tabanlı İş Yönetimi (Work Management)
 
-v1'de PR **zorunlu değildir** (yerel, tek kullanıcı). Ancak uzak repo
-yapılandırıldığında:
+Git ve `.p2p/events.jsonl`, sistemin **makine icra gerçeği** iken; GitHub Issues ve PR'lar sistemin **insan işbirliği ve görünürlük katmanı**dır.
 
-- `p2p/integration` → `main` için PR açılır
-- PR gövdesi: ürün özeti, tamamlanan task listesi, kabul kriteri tablosu,
-  kapı durumları, bilinen teknik borç
-- Birleştirme **her zaman insan onayıyla**
+### Üç Ayrı Gerçeklik Katmanı
 
-Otomatik birleştirme v1'de yoktur ve varsayılan olarak asla açılmayacaktır.
+| Veri | Doğruluk Kaynağı (Source of Truth) | Sorumlu |
+|---|---|---|
+| Kaynak Kod | **Git** | GitManager / Orchestrator |
+| İcra Durumu (Execution State) | **`.p2p/events.jsonl`** | Tek Yazar (Orchestrator) |
+| Mimari Sözleşmeler | **`docs/adr/`** | Mimar / İnsan |
+| Görev Sözleşmesi | **`.p2p/tasks/*.json`** | Orchestrator |
+| İnsan Görünür Backlog | **GitHub Issues** (veya `.p2p/issues/`) | IssueProvider / Orchestrator |
+| Kod İnceleme & Tartışma | **GitHub PRs** | GitHubPRProvider / Orchestrator |
+| Harici Doğrulama | **GitHub Actions (CI)** | GitHub Actions Runner |
+
+> **Altın Kural:** Agent'lar (Claude veya Gemini) doğrudan GitHub API veya Git komutu çalıştırmaz. Claude yalnızca `ReviewResult` üretir. Issue açma, etiketleme ve PR oluşturma yetkisi **yalnızca Orchestrator'ın `GitHubAdapter` bileşenindedir**.
+
+### Otonom Düzeltme ve İnceleme Döngüsü
+
+```text
+                  GEMINI
+                    │
+              implementation
+                    │
+                    ▼
+               Task PR (p2p/task -> integration)
+                    │
+                    ▼
+             deterministic CI
+                    │
+                    ▼
+                 CLAUDE
+                  review
+                    │
+              ┌─────┴─────┐
+              │           │
+            PASS         FAIL
+              │           │
+              ▼           ▼
+            merge     GitHub Issue (Otomatik oluşturulur)
+                          │
+                          ▼
+                     Repair Task (TaskContract)
+                          │
+                          ▼
+                       GEMINI
+                          │
+                          ▼
+                      Fix PR (#Fixes issue)
+                          │
+                          ↺
+```
+
+### Dal ve PR Ayrımı
+
+Mimaride iki seviyeli PR modeli uygulanır:
+
+1. **Task PR'ları (`p2p/task/<id>` → `p2p/integration`):**
+   - Her görev tamamlandığında açılır.
+   - İlgili GitHub Issue ile bağlanır (`Fixes #43`).
+   - CI ve Claude Review bu PR üzerinde koşar. Merge edildiğinde ilgili Issue otomatik kapanır.
+2. **Release PR (`p2p/integration` → `main`):**
+   - Tüm task graph dalgası tamamlandığında açılır.
+   - Ürün özeti, kabul kriteri tablosu, kapı durumları ve sürüm notlarını içerir.
+   - **Yalnızca insan onayıyla** `main`'e birleştirilir.
+
+### Standart Issue Şablonu ve Etiketler
+
+Claude'un `ReviewResult`'ındaki bulgular (Finding) orchestrator tarafından standart bir GitHub Issue'ya dönüştürülür:
+
+```markdown
+## Problem
+Refresh token rotation is not implemented.
+
+## Severity
+HIGH
+
+## Evidence
+backend/auth/token_service.py:84
+
+## Acceptance Criteria
+- [ ] Old refresh token becomes invalid
+- [ ] New refresh token is generated
+- [ ] Reuse is rejected
+- [ ] Tests cover rotation
+
+## Source
+Task: API-042 | Attempt: 2
+```
+
+**Standart Etiketler (Labels):**
+- **Tür:** `p2p:bug`, `p2p:feature`, `p2p:architecture`, `p2p:security`, `p2p:tech-debt`
+- **Öncelik:** `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
+- **Hedef Agent:** `agent:gemini`, `agent:claude`
+- **Durum:** `status:ready`, `status:in-progress`, `status:review`, `status:blocked`
+
+### Local-First Prensibi (`IssueProvider` Soyutlaması)
+
+GitHub bir zorunluluk (hard dependency) değildir. Sistem çevrimdışı veya GitHub olmadan da çalışır:
+
+```text
+IssueProvider (Interface)
+   ├── LocalIssueStore     (v1: .p2p/issues/*.json — çevrimdışı / local-first)
+   └── GitHubIssueProvider (gh CLI / GitHub REST API — insan işbirliği ve sync)
+```
+
+`p2p run --provider local` yerel dizini; `p2p run --provider github` uzak depoyu senkronize eder.
 
 ## 8. CD — provider-nötr
 

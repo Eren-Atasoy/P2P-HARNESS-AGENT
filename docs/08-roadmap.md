@@ -42,8 +42,9 @@ değil, **döngünün fiziksel olarak mümkün olduğunu** kanıtlamak.
 `docs/11`: V3 (Antigravity SDK), V4 (Claude Agent SDK), V7 (sandbox),
 V8 (paralel oturum sınırı).
 
-**Çıkış kriteri:** Test 3 geçiyor. Bu an, tam otonomi vaadinin ilk teknik
-kanıtıdır; geçmezse mimari değil **ürün tanımı** yeniden düşünülür.
+**Çıkış kriteri (Milestone 1: AUTONOMOUS LOOP VERIFIED):** Test 3 geçiyor.
+Bu aşama, tam ürün üretimi değil; **tek bir task döngüsünün (task → implement → gates → review → fix) fiziksel olarak insansız kapandığının** teknik kanıtıdır.
+Geçmezse mimari değil **ürün tanımı** yeniden düşünülür. (Nihai hedef olan *AUTONOMOUS PRODUCT GENERATION VERIFIED* Faz 7'nin çıkış kriteridir).
 
 **Risk:** Sağlayıcı CLI'ları beklenen davranışı göstermeyebilir → adapter
 tasarımı değişir, çekirdek mimari değişmez (`docs/04 §4`).
@@ -143,6 +144,19 @@ task graph.
 
 ---
 
+## Faz 6.5 — GitHub İş ve PR Yönetimi  (~2 gün)
+
+İnsan işbirliği ve görünürlük katmanının (`docs/07 §7`) sisteme bağlandığı fazdır. Çekirdek orkestrasyonun local-first prensibi bozulmadan harici GitHub entegrasyonu eklenir.
+
+- `IssueProvider`: `LocalIssueStore` (`.p2p/issues/`) + `GitHubIssueProvider` (`gh` CLI / REST API)
+- `GitHubPRProvider`: Task PR (`p2p/task/<id>` → `p2p/integration`) ve Release PR (`p2p/integration` → `main`)
+- **Review → Issue → Repair → PR → Merge → Close** döngüsü
+- Standart etiketleme (`p2p:bug`, `priority:high`, `agent:gemini`)
+
+**Çıkış:** Claude review'ının ürettiği `HIGH` bulgu GitHub Issue'suna dönüşür; Gemini bu Issue'dan üretilen `FIX-` sözleşmesini uygulayıp PR açar; kapılardan geçip merge edildiğinde Issue otomatik kapanır.
+
+---
+
 ## Faz 7 — İlk uçtan uca ürün  (~5 gün)
 
 Tek hedef: **tek promptan çalışan ürün.**
@@ -150,9 +164,10 @@ Tek hedef: **tek promptan çalışan ürün.**
 Referans senaryo: kimlik doğrulamalı, PostgreSQL'li, Docker'la ayağa kalkan
 randevu API'si + minimal web arayüzü.
 
-**Çıkış:** `p2p new "..."` sonrası `docker compose up` ile ürün tarayıcıda
+**Çıkış kriteri (Milestone 2: AUTONOMOUS PRODUCT GENERATION VERIFIED):**
+`p2p new "..."` sonrası `docker compose up` ile ürün tarayıcıda
 çalışıyor; tüm kapılar yeşil; `.p2p/` silindiğinde proje normal repo olarak
-çalışmaya devam ediyor.
+çalışmaya devam ediyor. Tek bir prompttan production-ready ürün üretimi ilk kez bu aşamada kanıtlanır.
 
 **Risk (en yüksek):** Üretilen kod entegrasyonda dağılabilir. Azaltma:
 `contract` ve `smoke` kapıları Faz 4'te hazır olduğu için sorun erken görünür.
@@ -204,7 +219,7 @@ uygulanmış, doğrulanmış ve birleştirilmiş; `git log` bunu gösteriyor.
 ## Kritik yol
 
 ```
-0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 6.5 -> 7 -> 8 -> 9 -> 10
           Faz 2 ve Faz 4 paralel (ikisi de modelsiz)
 ```
 

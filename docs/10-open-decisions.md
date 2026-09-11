@@ -21,36 +21,21 @@ içinde izole bir değişiklik.
 **Neden şimdi karar vermelisin:** Faz 1'in ilk satırı bu dile yazılıyor.
 Sonradan değiştirmek her şeyi yeniden yazmak demek.
 
-- [x] Karar: Python 3.11+ (Pydantic v2 + Typer + Pytest). Gerekçe: CLI orkestrasyonu, veri modelleri doğrulama katılığı, subprocess yönetimi ve test altyapısı için en verimli ve olgun ortam. Üretilecek nihai ürünlerin dili ise kullanıcı ve Blueprint seçimine bırakılmıştır. (2026-09-11)
+- [x] Karar: Python 3.12+ (Pydantic v2 + Typer + uv + Pytest + Antigravity Python SDK). Gerekçe: Control-plane ve orchestrator iş yükü için en olgun ekosistem, Antigravity Python SDK & MCP desteği tam uyumlu. Üretilecek nihai ürünlerin dili ise kullanıcı ve Blueprint seçimine bırakılmıştır. (2026-09-11)
 
 ---
 
-## D2 — İlk hedef teknoloji yığını (referans ürün için)
+## D2 — İlk hedef teknoloji yığını (referans ürün için — Golden Blueprint)
 
-> **KISMEN KAPANDI (2026-09-10).** Frontend tarafı `docs/12-design-system.md`
-> ile bağlandı: **Next.js 15 (App Router) · TypeScript strict · Tailwind CSS ·
-> Radix UI primitives (shadcn/ui deseni) · Lucide**.
+> **KAPANDI (2026-09-11).** İlk deterministik demo için Golden Blueprint sabitlendi:
+> - **Frontend:** Next.js 15 (App Router) · TypeScript strict · Tailwind CSS · Radix UI primitives (shadcn/ui deseni) · Lucide (`docs/12`).
+> - **Backend:** Python / FastAPI · SQLAlchemy · Pydantic v2 · Pytest.
+> - **Database:** PostgreSQL 16.
+> - **Altyapı:** Docker Compose.
 >
-> Backend ve veritabanı hâlâ açık (öneri: FastAPI + Postgres) ve Faz 7'ye kadar
-> bekleyebilir. Ayrım bilinçli: frontend standardı **şimdi** gerekiyordu çünkü
-> tasarım sistemi ona bağlı; backend seçimi Faz 7'den önce gerekmiyor.
->
-> Aşağıdaki değerlendirme, kararın nasıl verildiğinin kaydı olarak duruyor.
+> Bu seçim "P2P yalnızca bu yığını üretir" demek değildir; ilk uçtan uca kanıtın deterministik ve en olgun AI kod kalitesiyle çıkmasını garanti eden **Golden Blueprint**tir. İleride ek Blueprint'ler (Node, Go, Flutter) eklenecektir.
 
-Faz 7'de üreteceğimiz ilk gerçek ürünün yığını. Blueprint mimarisi çoklu yığını
-destekleyecek ama **birincisi** en olgun olan olmalı.
-
-| Seçenek | Artı | Eksi |
-|---|---|---|
-| FastAPI + Next.js + Postgres | AI'lar en iyi bu kombinasyonu üretiyor; test araçları olgun | İki dil, iki ekosistem |
-| Next.js full-stack + Postgres | Tek dil, tek build, daha az entegrasyon yüzeyi | Backend ağırlaştıkça sıkışır |
-| .NET + Next.js | Senin mevcut deneyimin | AI üretim kalitesi ve topluluk örnekleri daha zayıf |
-
-**Öneri:** FastAPI + Next.js + Postgres. Gerekçe: uygulayıcı bir AI modeli;
-onun en güvenilir ürettiği ve doğrulama araçlarının en olgun olduğu yığını
-seçmek, senin kişisel tercihinden daha ağır basar.
-
-- [ ] Karar: ______
+- [x] Karar: FastAPI + Next.js 15 + PostgreSQL 16 + Docker Compose (Golden Blueprint). Gerekçe: AI modellerinin en yüksek kaliteli kod ve test ürettiği, en olgun tooling ve container doğrulama ekosistemi. (2026-09-11)
 
 ---
 
