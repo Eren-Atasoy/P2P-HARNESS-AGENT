@@ -9,6 +9,7 @@ import json
 import mimetypes
 import os
 import threading
+import time
 import urllib.parse
 from pathlib import Path
 from typing import Any, Optional
@@ -72,7 +73,7 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_static_files(path)
 
     def do_POST(self) -> None:
-        """Dispatches POST actions for approvals and retro."""
+        """Dispatches POST actions for approvals, tasks, runs, and retro."""
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
 
@@ -87,8 +88,28 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
             parts = path.strip("/").split("/")
             task_id = parts[2]
             self._handle_approval_action(task_id, payload)
+        elif path == "/api/approvals/simulate":
+            self._handle_simulate_approval(payload)
         elif path == "/api/retro/apply":
             self._handle_retro_apply(payload)
+        elif path == "/api/retro/scan":
+            self._handle_retro_scan(payload)
+        elif path.startswith("/api/tasks/") and path.endswith("/status"):
+            parts = path.strip("/").split("/")
+            task_id = parts[2]
+            self._handle_task_status_update(task_id, payload)
+        elif path.startswith("/api/tasks/") and path.endswith("/directive"):
+            parts = path.strip("/").split("/")
+            task_id = parts[2]
+            self._handle_task_directive(task_id, payload)
+        elif path.startswith("/api/tasks/") and path.endswith("/toggle_approval"):
+            parts = path.strip("/").split("/")
+            task_id = parts[2]
+            self._handle_task_toggle_approval(task_id, payload)
+        elif path == "/api/run/new":
+            self._handle_run_new(payload)
+        elif path == "/api/run/start":
+            self._handle_run_start(payload)
         else:
             self._send_json({"error": "Not Found"}, status=404)
 
@@ -99,7 +120,7 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
         state = project_state(events) if events else None
 
         data = {
-            "workspace": str(self.workspace.root_path),
+            "workspace": str(self.workspace.root_path) if self.workspace else "",
             "events_count": len(events),
             "state": state.model_dump() if state else {
                 "tasks": {},
@@ -135,7 +156,8 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
             for task_file in sorted(self.workspace.tasks_dir.glob("*.json")):
                 try:
                     t_data = json.loads(task_file.read_text(encoding="utf-8"))
-                    if t_data.get("human_approval") or t_data.get("risk") == "high":
+                    is_pending = t_data.get("status") not in ("APPROVED", "COMPLETED", "REJECTED")
+                    if is_pending and (t_data.get("human_approval") or t_data.get("risk") == "high"):
                         approvals.append(t_data)
                 except Exception:
                     pass
@@ -158,12 +180,145 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
                 task_id=task_id,
             )
 
+        # Update task file on disk
+        if self.workspace and self.workspace.tasks_dir.exists():
+            task_file = self.workspace.tasks_dir / f"{task_id}.json"
+            if task_file.exists():
+                try:
+                    t_dict = json.loads(task_file.read_text(encoding="utf-8"))
+                    if action == "approve":
+                        t_dict["human_approval"] = False
+                        t_dict["status"] = "APPROVED"
+                    elif action == "reject":
+                        t_dict["status"] = "REJECTED"
+                    elif action == "steer":
+                        existing_notes = t_dict.get("notes") or ""
+                        t_dict["notes"] = f"{existing_notes}\n[STEER DIRECTIVE]: {feedback}".strip()
+                    task_file.write_text(json.dumps(t_dict, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
+
         self._send_json({
             "success": True,
             "task_id": task_id,
             "action": action,
             "message": f"Action '{action}' successfully recorded for task {task_id}.",
         })
+
+    def _handle_task_status_update(self, task_id: str, payload: dict[str, Any]) -> None:
+        new_status = payload.get("status", "COMPLETED")
+        if self.workspace and self.workspace.tasks_dir.exists():
+            task_file = self.workspace.tasks_dir / f"{task_id}.json"
+            if task_file.exists():
+                try:
+                    t_dict = json.loads(task_file.read_text(encoding="utf-8"))
+                    t_dict["status"] = new_status
+                    task_file.write_text(json.dumps(t_dict, indent=2), encoding="utf-8")
+                    if self.store:
+                        from src.models.enums import EventType
+                        self.store.append(
+                            EventType.TASK_STATUS_CHANGED,
+                            payload={"status": new_status},
+                            task_id=task_id,
+                        )
+                    self._send_json({"success": True, "task_id": task_id, "status": new_status})
+                    return
+                except Exception as err:
+                    self._send_json({"success": False, "error": str(err)}, status=500)
+                    return
+        self._send_json({"success": False, "error": f"Task {task_id} not found"}, status=404)
+
+    def _handle_task_directive(self, task_id: str, payload: dict[str, Any]) -> None:
+        directive = payload.get("directive", "").strip()
+        if not directive:
+            self._send_json({"success": False, "error": "Directive cannot be empty"}, status=400)
+            return
+
+        if self.workspace and self.workspace.tasks_dir.exists():
+            task_file = self.workspace.tasks_dir / f"{task_id}.json"
+            if task_file.exists():
+                try:
+                    t_dict = json.loads(task_file.read_text(encoding="utf-8"))
+                    existing = t_dict.get("notes") or ""
+                    t_dict["notes"] = f"{existing}\n[DIRECTIVE]: {directive}".strip()
+                    task_file.write_text(json.dumps(t_dict, indent=2), encoding="utf-8")
+                    if self.store:
+                        from src.models.enums import EventType
+                        self.store.append(
+                            EventType.DECISION_RECORDED,
+                            payload={"directive": directive, "decided_by": "human"},
+                            task_id=task_id,
+                        )
+                    self._send_json({"success": True, "task_id": task_id, "notes": t_dict["notes"]})
+                    return
+                except Exception as err:
+                    self._send_json({"success": False, "error": str(err)}, status=500)
+                    return
+        self._send_json({"success": False, "error": f"Task {task_id} not found"}, status=404)
+
+    def _handle_task_toggle_approval(self, task_id: str, payload: dict[str, Any]) -> None:
+        human_approval = bool(payload.get("human_approval", True))
+        if self.workspace and self.workspace.tasks_dir.exists():
+            task_file = self.workspace.tasks_dir / f"{task_id}.json"
+            if task_file.exists():
+                try:
+                    t_dict = json.loads(task_file.read_text(encoding="utf-8"))
+                    t_dict["human_approval"] = human_approval
+                    task_file.write_text(json.dumps(t_dict, indent=2), encoding="utf-8")
+                    self._send_json({"success": True, "task_id": task_id, "human_approval": human_approval})
+                    return
+                except Exception as err:
+                    self._send_json({"success": False, "error": str(err)}, status=500)
+                    return
+        self._send_json({"success": False, "error": f"Task {task_id} not found"}, status=404)
+
+    def _handle_simulate_approval(self, payload: dict[str, Any]) -> None:
+        if not self.workspace:
+            self._send_json({"success": False, "error": "Workspace not configured"}, status=500)
+            return
+
+        self.workspace.ensure_directories()
+        sim_id = f"SEC-{int(time.time()) % 1000:03d}"
+        sim_task = {
+            "id": sim_id,
+            "title": "Migrate Production DB & Rotate JWT Secret",
+            "capabilities": ["database", "backend"],
+            "risk": "high",
+            "depends_on": [],
+            "intent": "Critical migration and secret rotation requiring human sign-off before proceeding.",
+            "acceptance_criteria": [
+                {
+                    "id": "AC-1",
+                    "statement": "Database migration executed and verified safely",
+                    "verified_by": "gate",
+                    "gate_ref": "security_audit",
+                }
+            ],
+            "inputs": ["database/schema.sql"],
+            "allowed_paths": ["src/db/**", "alembic/**"],
+            "forbidden_paths": [".env.production", "secrets/**"],
+            "gates": ["security_audit", "pytest_suite"],
+            "estimated_size": "M",
+            "max_attempts": 3,
+            "human_approval": True,
+            "result_path": f".p2p/results/{sim_id}.json",
+            "acr_path": f".p2p/acr/{sim_id}.json",
+            "notes": "Awaiting human review in UI dashboard",
+            "status": "PENDING_APPROVAL",
+        }
+
+        task_path = self.workspace.tasks_dir / f"{sim_id}.json"
+        task_path.write_text(json.dumps(sim_task, indent=2), encoding="utf-8")
+
+        if self.store:
+            from src.models.enums import EventType
+            self.store.append(
+                EventType.TASK_DISCOVERED,
+                payload={"simulated": True, "risk": "high"},
+                task_id=sim_id,
+            )
+
+        self._send_json({"success": True, "task_id": sim_id, "task": sim_task})
 
     def _handle_get_connections(self) -> None:
         connections = []
@@ -176,7 +331,7 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
                 "kind": "api" if name == "api" else ("local" if name == "ollama" else "cli"),
                 "available": doc.available if doc else False,
                 "authenticated": doc.authenticated if doc else False,
-                "version": doc.version if doc else None,
+                "version": doc.version if doc else "N/A",
                 "can_stream": feat.can_stream if feat else False,
             })
         self._send_json({"connections": connections})
@@ -207,6 +362,118 @@ class P2PUIHandler(http.server.SimpleHTTPRequestHandler):
 
         engine.apply_recommendation(matching[0])
         self._send_json({"success": True, "applied_id": rec_id})
+
+    def _handle_retro_scan(self, payload: dict[str, Any]) -> None:
+        if not self.workspace or not self.store:
+            self._send_json({"success": True, "recommendations": []})
+            return
+
+        engine = RetroEngine(self.workspace, self.store)
+        recs = engine.analyze_events(self.store.read_all())
+        self._send_json({
+            "success": True,
+            "recommendations": [r.model_dump() for r in recs],
+        })
+
+    def _handle_run_new(self, payload: dict[str, Any]) -> None:
+        prompt = payload.get("prompt", "").strip()
+        bp_name = payload.get("blueprint", "fastapi")
+        autonomy = payload.get("autonomy", "guarded")
+
+        if not prompt:
+            self._send_json({"success": False, "error": "Prompt cannot be empty"}, status=400)
+            return
+
+        try:
+            from src.models.enums import AutonomyLevel
+            from src.planning.discovery import DiscoveryEngine
+            from src.planning.architect import ArchitecturePlanner
+            from src.planning.decomposer import TaskDecomposer
+
+            self.workspace.ensure_directories()
+            if not self.store:
+                self.store = EventStore(self.workspace.events_path)
+
+            autonomy_level = AutonomyLevel(autonomy.lower())
+
+            discovery = DiscoveryEngine(self.workspace, self.store)
+            spec, decisions, _ = discovery.discover(prompt, autonomy_level=autonomy_level)
+
+            architect = ArchitecturePlanner(self.workspace, self.store)
+            _, adrs, _, _ = architect.plan_architecture(spec, autonomy_level=autonomy_level, approved_by_user=True)
+
+            decomposer = TaskDecomposer(self.workspace, self.store)
+            graph, _, _ = decomposer.decompose(spec, autonomy_level=autonomy_level, approved_by_user=True)
+
+            bp = plugin_registry.get_blueprint(bp_name)
+            if bp:
+                bp.generate_scaffold(self.workspace, spec)
+                bp.generate_infra(self.workspace, spec)
+                bp.generate_tests(self.workspace, spec)
+
+            self._send_json({
+                "success": True,
+                "project_name": spec.name,
+                "tasks_count": len(graph.tasks),
+                "adrs_count": len(adrs),
+            })
+        except Exception as err:
+            self._send_json({"success": False, "error": str(err)}, status=500)
+
+    def _handle_run_start(self, payload: dict[str, Any]) -> None:
+        try:
+            from src.models.enums import AutonomyLevel
+            from src.orchestration.engine import OrchestratorEngine
+            from src.orchestration.graph import TaskGraph
+            from src.orchestration.router import CapabilityRouter
+            from src.runtime.mock import MockRuntime
+            from src.verification.config import GatesConfig
+            from src.verification.runner import GateRunner
+            from src.models.connection import Connection
+            from src.models.enums import ConnectionKind, RuntimeType, Capability
+
+            graph = TaskGraph()
+            if self.workspace and self.workspace.tasks_dir.exists():
+                for t_file in self.workspace.tasks_dir.glob("*.json"):
+                    try:
+                        t_data = json.loads(t_file.read_text(encoding="utf-8"))
+                        clean_data = {k: v for k, v in t_data.items() if k != "status"}
+                        graph.add_task(TaskContract.model_validate(clean_data))
+                    except Exception:
+                        pass
+
+            if not graph.tasks:
+                self._send_json({"success": False, "error": "No tasks found to run. Plan project first."}, status=400)
+                return
+
+            conn = Connection(
+                id="default-local",
+                kind=ConnectionKind.LOCAL,
+                runtime=RuntimeType.MOCK,
+                credential_ref="env:DEFAULT",
+                capabilities=[Capability.BACKEND, Capability.FRONTEND, Capability.DATABASE, Capability.ARCHITECTURE, Capability.PLANNING],
+            )
+            router = CapabilityRouter(connections=[conn])
+            runtime = MockRuntime()
+            gate_runner = GateRunner(workspace=self.workspace, gates_config=GatesConfig.default_gates())
+
+            engine = OrchestratorEngine(
+                workspace=self.workspace,
+                graph=graph,
+                router=router,
+                runtime=runtime,
+                event_store=self.store,
+                gate_runner=gate_runner,
+                enable_git=False,
+            )
+
+            # Run in separate thread so UI server stays responsive
+            t = threading.Thread(target=engine.run_loop, daemon=True)
+            t.start()
+
+            self._send_json({"success": True, "message": "Autonomous orchestrator loop started."})
+        except Exception as err:
+            self._send_json({"success": False, "error": str(err)}, status=500)
 
     # --- Static File Serving ---
 

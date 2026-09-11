@@ -423,6 +423,51 @@ body {
   color: #fff;
 }
 
+.btn-success {
+  background-color: var(--status-success-bg);
+  color: var(--status-success);
+  border-color: var(--status-success-border);
+}
+
+.btn-success:hover {
+  background-color: var(--status-success);
+  color: #fff;
+}
+
+/* Form Controls */
+.input-control {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  transition: border-color 0.15s ease;
+}
+
+.input-control:focus {
+  border-color: var(--accent-brand);
+  outline: none;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 18px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--accent-brand-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  z-index: 1000;
+  transition: opacity 0.3s ease;
+}
+
 /* Wave Visualizer (Task Graph) */
 .wave-band {
   margin-bottom: var(--space-4);
