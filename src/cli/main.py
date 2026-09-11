@@ -88,7 +88,71 @@ def new(
             ", ".join(t.allowed_paths[:2]),
         )
     console.print(table)
+
+    # Step 4: Golden Blueprint Scaffolding & Infrastructure (Faz 7)
+    from src.blueprints.fastapi import FastApiBlueprint
+    blueprint = FastApiBlueprint()
+    scaffold = blueprint.generate_scaffold(ws, spec)
+    infra = blueprint.generate_infra(ws, spec)
+    tests = blueprint.generate_tests(ws, spec)
+    console.print(f"[dim]Scaffolded {len(scaffold)} backend files, {len(infra)} infra files, {len(tests)} test files.[/dim]")
+
     console.print("[bold green]Planning chain completed successfully![/bold green] Ready to run: [cyan]p2p run[/cyan]")
+
+
+@app.command()
+def run(
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Workspace root containing .p2p directory"),
+    autonomy: str = typer.Option("guarded", "--autonomy", "-a", help="Autonomy level: supervised | guarded | full"),
+):
+    """Executes the autonomous loop over planned tasks (docs/03 §7)."""
+    from src.events.store import EventStore
+    from src.orchestration.engine import OrchestratorEngine
+    from src.orchestration.graph import TaskGraph
+    from src.orchestration.router import TaskRouter
+    from src.runtime.mock import MockRuntime
+    from src.verification.config import default_gates
+    from src.verification.runner import GateRunner
+
+    ws = Workspace(workspace)
+    if not ws.p2p_dir.exists():
+        console.print(f"[red]No .p2p directory found at {workspace}. Run 'p2p new' first.[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        autonomy_level = AutonomyLevel(autonomy.lower())
+    except ValueError:
+        console.print(f"[red]Invalid autonomy level:[/red] '{autonomy}'. Use supervised, guarded, or full.")
+        raise typer.Exit(code=1)
+
+    console.print(Panel(f"[bold cyan]Prompt2Product Autonomous Run[/bold cyan]\nAutonomy: [white]{autonomy_level.value}[/white]", border_style="cyan"))
+
+    # Load tasks into graph
+    graph = TaskGraph()
+    for task_file in ws.tasks_dir.glob("*.json"):
+        import json
+        from src.models.task import TaskContract
+        task_data = json.loads(task_file.read_text(encoding="utf-8"))
+        graph.add_task(TaskContract.model_validate(task_data))
+
+    store = EventStore(ws.events_path)
+    router = TaskRouter(routing_config={})
+    runtime = MockRuntime()
+    gate_runner = GateRunner(default_gates(), workspace_root=ws.root_path)
+
+    engine = OrchestratorEngine(
+        workspace=ws,
+        task_graph=graph,
+        router=router,
+        runtime=runtime,
+        gate_runner=gate_runner,
+        event_store=store,
+        autonomy_level=autonomy_level,
+    )
+
+    exit_reason = engine.run_loop()
+    status_style = "green" if exit_reason.value == "COMPLETED" else "yellow"
+    console.print(f"Loop exited: [{status_style}]{exit_reason.value}[/{status_style}]")
 
 
 @app.command()
