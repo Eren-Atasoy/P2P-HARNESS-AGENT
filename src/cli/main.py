@@ -420,5 +420,60 @@ def pr(
     console.print(table)
 
 
+@app.command()
+def retro(
+    apply: Optional[str] = typer.Option(None, "--apply", help="ID of recommendation to apply (e.g. REC-001)"),
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Workspace root containing .p2p directory"),
+):
+    """Analyzes event log to extract repeating failure patterns and synthesize rules/gates (docs/03 §8)."""
+    from src.events.store import EventStore
+    from src.orchestration.retro import RetroEngine
+
+    ws = Workspace(workspace)
+    if not ws.events_path.exists():
+        console.print(f"[yellow]No events.jsonl found at {ws.events_path}. Run a project first.[/yellow]")
+        raise typer.Exit(code=0)
+
+    store = EventStore(ws.events_path)
+    events = store.read_all()
+
+    engine = RetroEngine(ws, store)
+    recommendations = engine.analyze_events(events)
+
+    if not recommendations:
+        console.print("[green]No systemic failure patterns detected in event history. Clean execution![/green]")
+        return
+
+    table = Table(title="Retrospective Failure Patterns & Rule Proposals", border_style="dim")
+    table.add_column("ID", style="bold white")
+    table.add_column("Kind")
+    table.add_column("Pattern")
+    table.add_column("Count")
+    table.add_column("Recommendation")
+    table.add_column("Target File")
+
+    for rec in recommendations:
+        kind_color = {"GATE": "bold red", "RULE": "yellow", "ROUTER": "cyan", "DOCS": "blue"}.get(rec.kind, "white")
+        table.add_row(
+            rec.id,
+            f"[{kind_color}]{rec.kind}[/{kind_color}]",
+            rec.pattern,
+            str(rec.count),
+            rec.recommendation,
+            rec.target_file,
+        )
+    console.print(table)
+
+    if apply:
+        matching = [r for r in recommendations if r.id == apply]
+        if not matching:
+            console.print(f"[red]Recommendation '{apply}' not found.[/red]")
+            raise typer.Exit(code=1)
+        target_rec = matching[0]
+        engine.apply_recommendation(target_rec)
+        console.print(f"[bold green]Successfully applied {apply}[/bold green] to [white]{target_rec.target_file}[/white]")
+        console.print(f"[dim]Recorded RETRO_APPLIED event in .p2p/events.jsonl[/dim]")
+
+
 if __name__ == "__main__":
     app()

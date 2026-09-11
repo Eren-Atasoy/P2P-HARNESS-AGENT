@@ -216,11 +216,52 @@ class NoneParser(BaseOutputParser):
         return [GateFailure(file=None, line=None, rule=None, message=first_line)]
 
 
+class PlaywrightParser(BaseOutputParser):
+    """Parser for Playwright test output."""
+
+    # Matches: 1) [chromium] › tests/e2e/auth.spec.ts:25:7 › User can login
+    _PW_HEADER = re.compile(r"^\s*\d+\)\s+(?:\[.*?\]\s+›\s+)?(.*?):(\d+):(\d+)\s+›\s+(.*)$", re.MULTILINE)
+
+    def parse(self, stdout: str, stderr: str, exit_code: int) -> list[GateFailure]:
+        if exit_code == 0:
+            return []
+
+        text = f"{stdout}\n{stderr}"
+        failures: list[GateFailure] = []
+
+        for match in self._PW_HEADER.finditer(text):
+            file_path = match.group(1).strip()
+            line_str = match.group(2)
+            test_title = match.group(4).strip()
+
+            failures.append(
+                GateFailure(
+                    file=file_path,
+                    line=int(line_str) if line_str else None,
+                    rule=test_title,
+                    message=f"Playwright E2E step failed in '{test_title}'",
+                )
+            )
+
+        if not failures:
+            # Fallback to general error capture
+            err_lines = [
+                l.strip() for l in text.splitlines()
+                if "Error:" in l or "Timed out" in l or "failed" in l.lower()
+            ]
+            msg = "\n".join(err_lines[:3]) if err_lines else f"Playwright tests exited with code {exit_code}"
+            failures.append(GateFailure(file=None, line=None, rule="playwright", message=msg))
+
+        return failures
+
+
 _PARSERS: dict[str, BaseOutputParser] = {
     "pytest": PytestParser(),
     "tsc": TscParser(),
     "eslint": EslintParser(),
     "ruff": RuffParser(),
+    "playwright": PlaywrightParser(),
+    "e2e": PlaywrightParser(),
     "none": NoneParser(),
 }
 

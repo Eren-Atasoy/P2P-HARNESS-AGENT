@@ -36,11 +36,20 @@ class RepairPlanner:
         gate_name = gate_result.gate.lower()
         if "lint" in gate_name or "typecheck" in gate_name:
             return FailureClass.SYNTAX
-        if "test" in gate_name or "unit" in gate_name or "integration" in gate_name or "smoke" in gate_name:
+        if "test" in gate_name or "unit" in gate_name or "integration" in gate_name or "smoke" in gate_name or "e2e" in gate_name:
             return FailureClass.TEST_FAIL
         if "policy" in gate_name:
             return FailureClass.POLICY
 
+        return FailureClass.UNKNOWN
+
+    @classmethod
+    def classify_failure(cls, gate_results: list[GateResult]) -> FailureClass:
+        """Classifies a list of gate results, returning the highest priority failure class."""
+        for gr in gate_results:
+            fc = cls.classify_gate_failure(gr)
+            if fc != FailureClass.UNKNOWN:
+                return fc
         return FailureClass.UNKNOWN
 
     @staticmethod

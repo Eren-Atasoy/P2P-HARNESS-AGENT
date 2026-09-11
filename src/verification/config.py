@@ -77,6 +77,13 @@ class GatesConfig(BaseModel):
                     isolation="serialized",
                     parse="none",
                 ),
+                "e2e": GateDefinition(
+                    cmd=["npx", "playwright", "test"],
+                    cwd=".",
+                    timeout_s=600,
+                    isolation="serialized",
+                    parse="playwright",
+                ),
             }
         )
 
