@@ -33,11 +33,12 @@ def version():
 def new(
     prompt: str = typer.Argument(..., help="Natural language product description or requirements"),
     workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Target workspace root directory"),
+    blueprint: str = typer.Option("fastapi", "--blueprint", "-b", help="Project blueprint: fastapi | python_cli"),
     autonomy: str = typer.Option("guarded", "--autonomy", "-a", help="Autonomy level: supervised | guarded | full"),
     approve: bool = typer.Option(False, "--approve", help="Explicitly approve project gates G1, G2, G3"),
 ):
     """Initializes a new project from a prompt through the planning chain (G1 -> G2 -> G3)."""
-    console.print(Panel(f"[bold cyan]Prompt2Product Planning Chain[/bold cyan]\nPrompt: [white]{prompt}[/white]", border_style="cyan"))
+    console.print(Panel(f"[bold cyan]Prompt2Product Planning Chain[/bold cyan]\nPrompt: [white]{prompt}[/white]\nBlueprint: [cyan]{blueprint}[/cyan]", border_style="cyan"))
 
     ws = Workspace(workspace)
     ws.ensure_directories()
@@ -89,13 +90,17 @@ def new(
         )
     console.print(table)
 
-    # Step 4: Golden Blueprint Scaffolding & Infrastructure (Faz 7)
-    from src.blueprints.fastapi import FastApiBlueprint
-    blueprint = FastApiBlueprint()
-    scaffold = blueprint.generate_scaffold(ws, spec)
-    infra = blueprint.generate_infra(ws, spec)
-    tests = blueprint.generate_tests(ws, spec)
-    console.print(f"[dim]Scaffolded {len(scaffold)} backend files, {len(infra)} infra files, {len(tests)} test files.[/dim]")
+    # Step 4: Blueprint Scaffolding & Infrastructure (Faz 7 & 9)
+    from src.plugins.registry import plugin_registry
+    bp_instance = plugin_registry.get_blueprint(blueprint)
+    if not bp_instance:
+        console.print(f"[bold red]Unknown blueprint:[/bold red] '{blueprint}'. Available: {', '.join(plugin_registry.list_blueprints())}")
+        raise typer.Exit(code=1)
+
+    scaffold = bp_instance.generate_scaffold(ws, spec)
+    infra = bp_instance.generate_infra(ws, spec)
+    tests = bp_instance.generate_tests(ws, spec)
+    console.print(f"[dim]Scaffolded {len(scaffold)} source files, {len(infra)} infra files, {len(tests)} test files using [{blueprint}] blueprint.[/dim]")
 
     console.print("[bold green]Planning chain completed successfully![/bold green] Ready to run: [cyan]p2p run[/cyan]")
 
@@ -473,6 +478,57 @@ def retro(
         engine.apply_recommendation(target_rec)
         console.print(f"[bold green]Successfully applied {apply}[/bold green] to [white]{target_rec.target_file}[/white]")
         console.print(f"[dim]Recorded RETRO_APPLIED event in .p2p/events.jsonl[/dim]")
+
+
+@app.command()
+def audit(
+    path: Path = typer.Option(Path("."), "--path", "-p", help="Root directory to audit"),
+):
+    """Audits codebase for security secrets, tautological tests, and vendor independence (docs/08 Faz 9)."""
+    from src.verification.audit import ProjectAuditor
+
+    target_dir = path.resolve()
+    console.print(f"[bold blue]Running P2P Security & Hygiene Audit on:[/bold blue] {target_dir}")
+
+    auditor = ProjectAuditor(target_dir)
+    report = auditor.audit()
+
+    if report.issues:
+        table = Table(title="Audit Findings", border_style="dim")
+        table.add_column("Severity")
+        table.add_column("Category")
+        table.add_column("Location")
+        table.add_column("Message")
+
+        for issue in report.issues:
+            sev_style = {
+                "CRITICAL": "bold red",
+                "HIGH": "red",
+                "MEDIUM": "yellow",
+                "LOW": "blue",
+            }.get(issue.severity, "white")
+
+            table.add_row(
+                f"[{sev_style}]{issue.severity}[/{sev_style}]",
+                issue.category,
+                f"{issue.file}:{issue.line}",
+                issue.message,
+            )
+        console.print(table)
+
+    console.print(
+        f"\n[bold]Scanned:[/bold] {report.files_scanned} files | "
+        f"[bold red]Critical:[/bold red] {report.critical_count} | "
+        f"[red]High:[/red] {report.high_count} | "
+        f"[yellow]Medium:[/yellow] {report.medium_count} | "
+        f"[blue]Low:[/blue] {report.low_count}"
+    )
+
+    if not report.passed:
+        console.print("[bold red]Audit FAILED: Critical or High severity issues detected.[/bold red]")
+        raise typer.Exit(code=1)
+    else:
+        console.print("[bold green]Audit PASSED: No critical security or vendor leakage issues found.[/bold green]")
 
 
 if __name__ == "__main__":

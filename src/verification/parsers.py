@@ -268,4 +268,8 @@ _PARSERS: dict[str, BaseOutputParser] = {
 
 def get_parser(name: str) -> BaseOutputParser:
     """Get parser by name, defaulting to NoneParser."""
-    return _PARSERS.get(name.lower(), _PARSERS["none"])
+    name_lower = name.lower()
+    if name_lower == "a11y":
+        from src.verification.a11y import A11yParser
+        return A11yParser()
+    return _PARSERS.get(name_lower, _PARSERS["none"])

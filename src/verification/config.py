@@ -84,6 +84,13 @@ class GatesConfig(BaseModel):
                     isolation="serialized",
                     parse="playwright",
                 ),
+                "a11y": GateDefinition(
+                    cmd=["pnpm", "run", "a11y:ci"],
+                    cwd=".",
+                    timeout_s=180,
+                    isolation="parallel",
+                    parse="a11y",
+                ),
             }
         )
 
