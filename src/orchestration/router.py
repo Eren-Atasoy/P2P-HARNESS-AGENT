@@ -15,11 +15,15 @@ class CapabilityRouter:
 
     def __init__(
         self,
-        connections: list[Connection],
+        connections: Optional[list[Connection]] = None,
         escalation_map: Optional[dict[str, str]] = None,
     ):
-        self.connections = {c.id: c for c in connections}
+        self.connections = {c.id: c for c in (connections or [])}
         self.escalation_map = escalation_map or {}
+
+    def add_connection(self, connection: Connection) -> None:
+        """Adds or updates a connection in the router."""
+        self.connections[connection.id] = connection
 
     def get_candidate_connections(self, task: TaskContract) -> list[Connection]:
         candidates = []

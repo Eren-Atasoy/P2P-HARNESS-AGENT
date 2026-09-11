@@ -9,6 +9,11 @@ from rich.table import Table
 from src import __version__
 from src.events.projector import project_state
 from src.events.store import EventStore
+from src.models.decision import Decision
+from src.models.enums import DecidedBy, DecisionKind, EventType
+from src.runtime.claude import ClaudeCodeRuntime
+from src.runtime.gemini import GeminiCliRuntime
+from src.runtime.mock import MockRuntime
 
 app = typer.Typer(help="Prompt2Product — Autonomous, model-agnostic, local-first software engineering platform")
 console = Console()
@@ -18,6 +23,85 @@ console = Console()
 def version():
     """Prints Prompt2Product version."""
     console.print(f"[bold cyan]Prompt2Product[/bold cyan] version [green]{__version__}[/green]")
+
+
+@app.command()
+def doctor():
+    """Runs diagnostics on runtime adapters and CLI connections (docs/04 §4)."""
+    console.print(Panel("[bold cyan]Prompt2Product Runtime Doctor[/bold cyan]", border_style="cyan"))
+
+    adapters = [
+        ("claude-code", ClaudeCodeRuntime()),
+        ("gemini-cli", GeminiCliRuntime()),
+        ("mock-local", MockRuntime()),
+    ]
+
+    table = Table(title="Connection Diagnostics", border_style="dim")
+    table.add_column("Connection ID", style="bold white")
+    table.add_column("Available")
+    table.add_column("Version")
+    table.add_column("Latency (ms)")
+    table.add_column("Status")
+
+    for cid, adapter in adapters:
+        res = adapter.doctor(connection_id=cid)
+        avail_style = "green" if res.available else "red"
+        avail_str = f"[{avail_style}]{res.available}[/{avail_style}]"
+        latency_str = f"{res.latency_ms:.1f}" if res.latency_ms is not None else "-"
+        status_style = "green" if res.available else "yellow"
+        status_text = "READY" if res.available else (res.error or "NOT FOUND")
+
+        table.add_row(
+            res.connection_id,
+            avail_str,
+            res.version or "-",
+            latency_str,
+            f"[{status_style}]{status_text}[/{status_style}]",
+        )
+
+    console.print(table)
+
+
+@app.command()
+def steer(
+    task_id: str = typer.Argument(..., help="ID of the task to steer (e.g. TASK-001)"),
+    guidance: str = typer.Argument(..., help="Human steering instruction or decision"),
+    workspace: Path = typer.Option(Path("."), "--workspace", "-w", help="Workspace root containing .p2p directory"),
+):
+    """Injects a human steering decision into an escalated task (docs/03 §3.5)."""
+    p2p_dir = workspace / ".p2p"
+    events_path = p2p_dir / "events.jsonl"
+    p2p_dir.mkdir(parents=True, exist_ok=True)
+
+    store = EventStore(events_path)
+
+    dec_id = f"DEC-STEER-{task_id}"
+    store.append(
+        event_type=EventType.DECISION_RECORDED,
+        payload={
+            "decision_id": dec_id,
+            "chosen": guidance,
+            "rationale": "Steered by operator via CLI",
+            "decided_by": DecidedBy.HUMAN.value,
+            "kind": DecisionKind.STEER.value,
+        },
+        task_id=task_id,
+    )
+    store.append(
+        event_type=EventType.HUMAN_STEERED,
+        payload={"guidance": guidance},
+        task_id=task_id,
+    )
+    store.append(
+        event_type=EventType.TASK_STATE_CHANGED,
+        payload={"to": "READY", "reason": "human_steer"},
+        task_id=task_id,
+    )
+
+    console.print(
+        f"[bold green]Successfully steered task [cyan]{task_id}[/cyan]:[/bold green] '{guidance}'"
+    )
+    console.print(f"[dim]Decision recorded as {dec_id} (decided_by=human)[/dim]")
 
 
 @app.command()

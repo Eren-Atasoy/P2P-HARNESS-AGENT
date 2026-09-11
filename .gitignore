@@ -1,6 +1,4 @@
-.p2p/state.json
-.p2p/runs/
-.p2p/wt/
+.p2p/
 __pycache__/
 *.pyc
 .venv/

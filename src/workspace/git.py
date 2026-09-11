@@ -105,7 +105,7 @@ class GitManager:
         wt_path = self.workspace.worktree_path(task_id)
 
         if wt_path.exists():
-            raise GitError(f"Worktree path already exists: {wt_path}")
+            return wt_path
 
         wt_path.parent.mkdir(parents=True, exist_ok=True)
         self._run_git(["worktree", "add", "-b", branch_name, str(wt_path), base_branch])

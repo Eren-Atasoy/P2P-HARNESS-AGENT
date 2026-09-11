@@ -46,6 +46,8 @@ def project_state(events: Iterable[Event], initial_state: Optional[State] = None
                     task.assigned_to = ev.payload["assigned_to"]
                 if "attempts" in ev.payload:
                     task.attempts = int(ev.payload["attempts"])
+                elif "attempt" in ev.payload:
+                    task.attempts = int(ev.payload["attempt"])
         elif ev.type == EventType.GATE_FINISHED:
             if ev.task_id and ev.task_id in state.tasks:
                 gate_name = ev.payload.get("gate", "unknown")

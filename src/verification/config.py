@@ -79,3 +79,8 @@ class GatesConfig(BaseModel):
                 ),
             }
         )
+
+    @classmethod
+    def default_gates(cls) -> GatesConfig:
+        """Alias for default_config."""
+        return cls.default_config()

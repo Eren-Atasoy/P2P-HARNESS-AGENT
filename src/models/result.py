@@ -6,6 +6,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.models.enums import FindingSeverity, GateStatus, ReviewVerdict, TaskOutcome
 
 
+class RunUsage(BaseModel):
+    """Resource and token usage metadata (docs/02 §3)."""
+    model_config = ConfigDict(extra="ignore")
+
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_cost_usd: Optional[float] = None
+    duration_ms: Optional[int] = None
+
+
 class AgentResult(BaseModel):
     # Rule C4 (docs/02 §3): extra="ignore" so extra fields don't invalidate a task result
     model_config = ConfigDict(extra="ignore")
@@ -19,6 +29,7 @@ class AgentResult(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     acr: Optional[str] = None
     failure_reason: Optional[str] = None
+    usage: Optional[RunUsage] = None
 
 
 class GateFailure(BaseModel):
@@ -30,6 +41,10 @@ class GateFailure(BaseModel):
     message: str
 
 
+# Alias Failure for convenience across verification and repair packages
+Failure = GateFailure
+
+
 class GateResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -39,6 +54,7 @@ class GateResult(BaseModel):
     duration_ms: int
     log_path: str
     failures: list[GateFailure] = Field(default_factory=list)
+    output_summary: Optional[str] = None
 
 
 class ReviewFinding(BaseModel):
@@ -49,6 +65,8 @@ class ReviewFinding(BaseModel):
     line: Optional[int] = None
     issue: str
     suggestion: str
+    title: Optional[str] = None
+    description: Optional[str] = None
 
 
 class ReviewResult(BaseModel):
